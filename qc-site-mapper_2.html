@@ -26,17 +26,6 @@
     --r:4px; --shadow:0 1px 2px rgba(13,21,32,.05), 0 8px 24px -12px rgba(13,21,32,.18);
     --safe-b:env(safe-area-inset-bottom, 0px);
   }
-  html.dark{
-    --paper:#0D1520; --card:#18222F; --wash:#111B27; --rule:#28374A; --rule-soft:#1E2C3D;
-    --ink:#E8EEF5; --ink-soft:#8B9AAC; --blue:#4C8DFF; --blue-deep:#1A4FC0; --blue-wash:#172740;
-    --shadow:0 1px 2px rgba(0,0,0,.3), 0 8px 24px -12px rgba(0,0,0,.6);
-  }
-  html.dark ::selection{background:var(--blue);color:#fff;}
-  html.dark .btn{border-color:var(--rule);}
-  html.dark .ghost-btn{border-color:var(--rule);color:var(--ink);}
-  html.dark .modal{background:var(--card);border-color:var(--rule);}
-  html.dark .modal-overlay{background:rgba(0,0,0,.6);}
-  html.dark input,html.dark select,html.dark textarea{background:var(--paper);color:var(--ink);border-color:var(--rule);}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
   html,body{margin:0;padding:0;height:100%;background:var(--paper);color:var(--ink);
     font-family:var(--ui);font-size:15px;-webkit-font-smoothing:antialiased;overscroll-behavior:none;}
@@ -104,6 +93,10 @@
   .pl-empty{text-align:center;padding:46px 20px;color:var(--night-soft);}
   .pl-empty .big{font-size:38px;margin-bottom:12px;opacity:.35;}
   .pl-empty p{margin:0;font-size:14px;line-height:1.6;}
+  .pl-action{background:transparent;border:1px solid var(--night-rule);color:var(--night-soft);
+    border-radius:8px;padding:10px 16px;font-family:var(--ui);font-size:13.5px;font-weight:500;
+    cursor:pointer;width:100%;text-align:left;transition:border-color .14s,color .14s;}
+  .pl-action:hover{border-color:var(--blue);color:var(--blue);}
 
   .fab{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + var(--safe-b));
     z-index:50;background:var(--blue);color:#fff;border:none;border-radius:26px;padding:14px 26px;
@@ -271,10 +264,6 @@
   .gps-btn:hover{border-color:var(--blue);}
   .gps-btn.locating{animation:pulse-gps .8s ease-in-out infinite;}
   @keyframes pulse-gps{0%,100%{opacity:1;}50%{opacity:.4;}}
-  .dark-toggle{background:transparent;border:1px solid var(--night-rule);border-radius:6px;
-    width:34px;height:34px;cursor:pointer;font-size:18px;color:var(--night-soft);
-    display:flex;align-items:center;justify-content:center;flex-shrink:0;}
-  .dark-toggle:hover{border-color:var(--blue);color:var(--blue);}
   .arm-banner{position:absolute;top:60px;left:50%;transform:translateX(-50%) translateY(-6px);z-index:999;
     background:var(--ink);color:#fff;padding:7px 15px;border-radius:20px;font-size:12.5px;font-weight:500;
     opacity:0;pointer-events:none;white-space:nowrap;transition:opacity .16s,transform .16s;box-shadow:var(--shadow);}
@@ -516,7 +505,7 @@
       <div class="pl-mark"><span>QC</span></div>
       <div class="pl-titles">
         <h1>Site Mapper</h1>
-        <p>Field camera placement · Build 17</p>
+        <p>Camera placement · Build 17</p>
       </div>
       <div class="pl-user">
         <div class="pl-username">
@@ -524,7 +513,6 @@
           <span>Jr. Operations Manager</span>
         </div>
         <div class="pl-avatar">JD</div>
-        <button class="dark-toggle" id="darkToggle" title="Toggle dark mode">◑</button>
       </div>
     </div>
     <div class="sync-pill">
@@ -535,8 +523,8 @@
 
   <div class="pl-body">
     <div id="homeProjects">
-      <button class="ghost-btn full-width" id="plImportBtn" style="margin-bottom:8px;">⤓ Import project from cloud</button>
-      <button class="ghost-btn full-width" id="plOpenFileBtn" style="margin-bottom:16px;">⬆ Open project file</button>
+      <button class="pl-action" id="plImportBtn" style="margin-bottom:8px;">⤓ Pull a project from the cloud</button>
+      <button class="pl-action" id="plOpenFileBtn" style="margin-bottom:16px;">⬆ Open a saved project file</button>
       <input type="file" id="openProjectFile" accept=".json" style="display:none;">
       <div class="pl-section" id="draftsHead">Drafts</div>
       <div id="draftList"></div>
@@ -544,7 +532,7 @@
       <div id="submittedList"></div>
       <div class="pl-empty" id="plEmpty">
         <div class="big">◇</div>
-        <p>No projects yet.<br>Create one and upload its KMZ to get started.</p>
+        <p>No projects yet.<br>Tap <b>+ New project</b> to get started.</p>
       </div>
     </div>
   </div>
@@ -1045,7 +1033,8 @@ function renderProjects(){
   const dot = document.getElementById('syncDot');
   const label = document.getElementById('syncLabel');
   if(SYNC.enabled()){ dot.classList.add('live'); label.textContent = 'Live — shared with your team'; }
-  else { dot.classList.remove('live'); label.textContent = 'Saved on this device only'; }
+  else if(CLOUD.pass){ dot.classList.add('live'); label.textContent = 'Synced to cloud'; }
+  else { dot.classList.remove('live'); label.textContent = 'Saved on this device'; }
 }
 function deleteProject(id){
   const p = projects.find(pr => pr.id === id);
@@ -2572,16 +2561,6 @@ document.getElementById('openProjectFile').addEventListener('change', async (e) 
   }
 });
 document.getElementById('saveProjectFileBtn').addEventListener('click', exportProjectFile);
-
-/* =========================== DARK MODE =========================== */
-(function(){
-  const btn = document.getElementById('darkToggle');
-  if(localStorage.getItem('qc-dark') === '1') document.documentElement.classList.add('dark');
-  btn.addEventListener('click', () => {
-    const on = document.documentElement.classList.toggle('dark');
-    localStorage.setItem('qc-dark', on ? '1' : '0');
-  });
-})();
 
 /* =========================== GPS LOCATE =========================== */
 document.getElementById('gpsBtn').addEventListener('click', function(){

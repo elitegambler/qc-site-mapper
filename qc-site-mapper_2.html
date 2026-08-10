@@ -514,21 +514,35 @@
   /* Every pin is blue now, so selection reads as a white halo + denser cone
      rather than a colour change. */
   .pin-wrap.selected .coverage-cone path{fill:var(--cone-fill-sel);stroke:var(--cone-stroke-sel);stroke-width:1.5;}
-  .orient-arrow{position:absolute;top:1px;left:50%;transform:translateX(-50%);width:0;height:0;
-    border-left:4px solid transparent;border-right:4px solid transparent;border-bottom:7px solid #fff;
-    filter:drop-shadow(0 0 1.5px rgba(11,18,32,.75));}
-  .cam-pin{position:absolute;inset:0;
-    background:radial-gradient(circle at 35% 30%, var(--pin-fill-hi), var(--pin-fill) 70%);
-    border:2px solid var(--pin-stroke);border-radius:50%;
+  /* Lens barrel — sits inside .orient-ring so it swings round to show where the
+     camera is aimed, which is what makes the pin read as a camera. */
+  .cam-lens{position:absolute;top:-3px;left:50%;transform:translateX(-50%);
+    width:13px;height:11px;border-radius:3px 3px 2px 2px;
+    background:var(--pin-fill);border:2px solid var(--pin-stroke);
+    box-shadow:0 1px 3px rgba(11,18,32,.5);}
+  .cam-lens::after{content:"";position:absolute;top:2px;left:50%;transform:translateX(-50%);
+    width:4px;height:4px;border-radius:50%;background:var(--pin-stroke);opacity:.9;}
+  /* Camera housing: a solid blue box, not a dot — distinct from the round
+     green location markers at a glance. */
+  .cam-pin{position:absolute;inset:2px 0;
+    background:var(--pin-fill);
+    border:2px solid var(--pin-stroke);border-radius:7px;
     display:flex;align-items:center;justify-content:center;
     box-shadow:0 3px 10px -2px rgba(11,18,32,.55), 0 0 0 1px rgba(11,18,32,.10),
-      inset 0 1px 2px rgba(255,255,255,.45);
+      inset 0 1px 2px rgba(255,255,255,.35);
     transition:box-shadow .18s;}
   .cam-num{font-family:var(--data);font-weight:700;font-size:13px;color:var(--pin-num);line-height:1;
     letter-spacing:-.02em;user-select:none;pointer-events:none;}
-  .rot-guide{position:absolute;inset:-13px;border-radius:50%;border:1.5px dashed var(--blue);opacity:0;
-    transition:opacity .14s;pointer-events:none;background:rgba(255,255,255,.35);}
-  .pin-wrap.selected .rot-guide{opacity:1;}
+  /* Grab-anywhere rotation ring. pointer-events:stroke makes only the band
+     itself hittable, so the pin underneath stays draggable for repositioning. */
+  .rot-ring{position:absolute;inset:-23px;overflow:visible;opacity:0;
+    transition:opacity .14s;pointer-events:none;}
+  .rot-ring-hit{stroke:rgba(255,255,255,.5);stroke-width:15;pointer-events:none;
+    vector-effect:non-scaling-stroke;}
+  .pin-wrap.selected .rot-ring{opacity:1;}
+  .pin-wrap.selected .rot-ring-hit{pointer-events:stroke;cursor:grab;
+    stroke:rgba(30,107,255,.28);}
+  .pin-wrap.selected .rot-ring-hit:active{cursor:grabbing;stroke:rgba(30,107,255,.42);}
   .pin-wrap.selected .cam-pin{
     box-shadow:0 0 0 3.5px rgba(255,255,255,.92), 0 4px 14px -2px rgba(11,18,32,.6),
       inset 0 1px 2px rgba(255,255,255,.5);}
@@ -574,6 +588,8 @@
   :root.big-touch .mini-pin{width:32px;height:32px;font-size:13px;}
   :root.big-touch .site-pin-icon{width:28px;height:28px;}
   :root.big-touch .rot-handle{width:36px;height:36px;margin-left:-18px;top:-32px;}
+  :root.big-touch .rot-ring{inset:-30px;}
+  :root.big-touch .rot-ring-hit{stroke-width:20;}
   :root.big-touch .btn{min-height:46px;padding:11px 16px;font-size:14px;}
   :root.big-touch .site-tab{padding:13px 13px;font-size:14.5px;}
   :root.big-touch .route-stop button{width:36px;height:36px;}
@@ -749,7 +765,9 @@
     .tabbar button:active{transform:scale(.9);}
     .tabbar button.active{color:var(--blue);}
     main{padding-bottom:calc(56px + var(--safe-b));}
-    .toast{bottom:calc(76px + var(--safe-b));}
+    /* NOTE: do not set `bottom` here. The toast is anchored by `top`, and
+       setting both stretches it to full viewport height. */
+    .toast{max-width:calc(100% - 28px);}
     .fab{width:calc(100% - 40px);justify-content:center;}
   }
   @media (max-width:420px){
@@ -817,7 +835,7 @@
       <div class="pl-mark"><svg viewBox="0 0 100 50" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="qcg" x1="0.25" y1="0" x2="0.75" y2="0"><stop offset="0%" stop-color="#2D3340"/><stop offset="50%" stop-color="#2D3D55"/><stop offset="100%" stop-color="#2E6EE8"/></linearGradient></defs><text x="0" y="43" font-family="Arial Black,Impact,sans-serif" font-weight="900" font-size="52" fill="url(#qcg)" letter-spacing="-4">QC</text></svg></div>
       <div class="pl-titles">
         <h1>Site Mapper</h1>
-        <p>Camera placement · Build 19</p>
+        <p>Camera placement · Build 20</p>
       </div>
       <div class="pl-user">
         <div class="pl-username">
@@ -1074,7 +1092,7 @@
       </button>
     </div>
 
-    <p class="set-version">QC Site Mapper · Build 19</p>
+    <p class="set-version">QC Site Mapper · Build 20</p>
   </div>
 </div>
 
@@ -2189,11 +2207,14 @@ function removeAllSiteMarkers(){
 
 /* ---------------- camera pins ---------------- */
 function pinHtml(num, orientation){
+  /* .rot-ring is an SVG circle using pointer-events:stroke, so only the ring
+     band is grabbable — a big rotation target that still leaves the middle
+     free for dragging the pin to a new spot. */
   return `<div class="pin-wrap">
-    <div class="rot-guide"></div>
+    <svg class="rot-ring" viewBox="-40 -40 80 80"><circle class="rot-ring-hit" r="27" fill="none"/></svg>
     <div class="orient-ring" style="transform:rotate(${orientation||0}deg)">
       <svg class="coverage-cone" viewBox="-66 -66 132 132"><path d="M0,0 L-34,-52 L34,-52 Z"/></svg>
-      <div class="orient-arrow"></div>
+      <div class="cam-lens"></div>
       <div class="rot-handle" title="Drag to aim"></div>
     </div>
     <div class="cam-pin"><span class="cam-num">${escapeHtml(num)}</span></div>
@@ -2211,36 +2232,47 @@ function wirePin(container, rec, opts){
     ev.stopPropagation();
     selectPin(rec, opts, container);
   });
-  let rotating = false;
-  ['mousedown','touchstart'].forEach(evt => handle.addEventListener(evt, ev => ev.stopPropagation()));
-  handle.addEventListener('pointerdown', (ev) => {
-    ev.stopPropagation(); ev.preventDefault();
-    rotating = true;
-    if(opts.lockDrag) opts.lockDrag(true);
-    try{ handle.setPointerCapture(ev.pointerId); }catch(e){}
-    selectPin(rec, opts, container);
-  });
-  handle.addEventListener('pointermove', (ev) => {
-    if(!rotating) return;
-    ev.stopPropagation(); ev.preventDefault();
-    const r = wrap.getBoundingClientRect();
-    const cx = r.left + r.width/2, cy = r.top + r.height/2;
-    let deg = Math.atan2(ev.clientY - cy, ev.clientX - cx) * 180/Math.PI + 90;
-    deg = (Math.round(deg/5) * 5 % 360 + 360) % 360;
-    rec.orientation = deg;
-    ring.style.transform = `rotate(${deg}deg)`;
-    syncInspectorHeading(rec);
-    renderPinsList();
-  });
-  const stop = (ev) => {
-    if(!rotating) return;
-    rotating = false;
-    if(opts.lockDrag) opts.lockDrag(false);
-    try{ handle.releasePointerCapture(ev.pointerId); }catch(e){}
-    saveProject();
-  };
-  handle.addEventListener('pointerup', stop);
-  handle.addEventListener('pointercancel', stop);
+  /* Rotation is wired to two targets: the small knob (which also shows the
+     current heading) and the whole ring band around the pin. The ring is the
+     one that actually matters on a phone — a 30px knob is far too small to
+     hit reliably with a thumb. */
+  const ringHit = container.querySelector('.rot-ring-hit');
+  function makeRotatable(el){
+    if(!el) return;
+    let rotating = false;
+    ['mousedown','touchstart'].forEach(evt =>
+      el.addEventListener(evt, ev => ev.stopPropagation()));
+    el.addEventListener('pointerdown', (ev) => {
+      ev.stopPropagation(); ev.preventDefault();
+      rotating = true;
+      if(opts.lockDrag) opts.lockDrag(true);
+      try{ el.setPointerCapture(ev.pointerId); }catch(e){}
+      selectPin(rec, opts, container);
+    });
+    el.addEventListener('pointermove', (ev) => {
+      if(!rotating) return;
+      ev.stopPropagation(); ev.preventDefault();
+      const r = wrap.getBoundingClientRect();
+      const cx = r.left + r.width/2, cy = r.top + r.height/2;
+      let deg = Math.atan2(ev.clientY - cy, ev.clientX - cx) * 180/Math.PI + 90;
+      deg = (Math.round(deg/5) * 5 % 360 + 360) % 360;
+      rec.orientation = deg;
+      ring.style.transform = `rotate(${deg}deg)`;
+      syncInspectorHeading(rec);
+      renderPinsList();
+    });
+    const stop = (ev) => {
+      if(!rotating) return;
+      rotating = false;
+      if(opts.lockDrag) opts.lockDrag(false);
+      try{ el.releasePointerCapture(ev.pointerId); }catch(e){}
+      saveProject();
+    };
+    el.addEventListener('pointerup', stop);
+    el.addEventListener('pointercancel', stop);
+  }
+  makeRotatable(handle);
+  makeRotatable(ringHit);
 }
 function mapPinOpts(marker, rec){
   return {
@@ -2582,7 +2614,8 @@ function createDiagramMarkerDom(rec){
   let dragState = null, recentlyDragged = false, dragLocked = false;
   const pinWrap = wrap.querySelector('.pin-wrap');
   pinWrap.addEventListener('pointerdown', (ev) => {
-    if(ev.target.closest('.rot-handle') || dragLocked) return;
+    // Rotation targets own the gesture; don't start a move drag under them.
+    if(ev.target.closest('.rot-handle, .rot-ring') || dragLocked) return;
     ev.stopPropagation();
     dragState = {startX:ev.clientX, startY:ev.clientY, origX:rec.x, origY:rec.y, moved:false};
     try{ pinWrap.setPointerCapture(ev.pointerId); }catch(e){}

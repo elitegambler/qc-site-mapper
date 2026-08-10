@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#FFFFFF">
 <title>QC Site Mapper</title>
 <link rel="manifest" href="manifest.json">
@@ -25,7 +25,7 @@
     --ink:#0B1220; --ink-soft:#5A6675;
     /* brand + status */
     --blue:#1256E0; --blue-deep:#0A2E6B; --blue-wash:#E8F0FE;
-    --hivis:#D8ED4A; --green:#0E8F57; --red:#C9384F; --amber:#B7791F;
+    --green:#0E8F57; --red:#C9384F; --amber:#B7791F;
     /* DataLens status palette — shared language across both apps */
     --st-amber:#F8D775; --st-amber-ink:#6F4E09;
     --st-teal:#12B39B;  --st-teal-ink:#FFFFFF;
@@ -34,6 +34,12 @@
     --badge:#F5821F;    --badge-ink:#FFFFFF;
     /* Pin internals sit on satellite imagery, so they stay fixed in both themes. */
     --pin-ink:#0B1220; --pin-face:#FFFFFF;
+    /* Camera pins are blue: yellow-green washed out against grass and asphalt. */
+    --pin-fill:#1E6BFF; --pin-fill-hi:#6BA5FF; --pin-stroke:#FFFFFF; --pin-num:#FFFFFF;
+    --cone-fill:rgba(30,107,255,.22); --cone-stroke:rgba(30,107,255,.62);
+    --cone-fill-sel:rgba(30,107,255,.40); --cone-stroke-sel:rgba(255,255,255,.85);
+    /* GPS location marker (Apple Maps style) */
+    --gps-blue:#1256E0; --gps-blue-hi:#6BA5FF; --gps-halo:rgba(120,140,165,.22);
     /* project-list surface — themed, so the list follows the active theme */
     --night:#F3F4F6; --night-2:#FFFFFF; --night-rule:#E3E6EB; --night-soft:#5A6675;
     --on-night:#0B1220;
@@ -79,8 +85,16 @@
     --e3:0 22px 50px -16px rgba(0,0,0,.68),0 8px 20px -8px rgba(0,0,0,.45);
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  /* touch-action:manipulation kills double-tap-to-zoom app-wide. It is the only
+     layer of the zoom lock that works on iOS, which ignores user-scalable=no.
+     Deliberately NOT applied to #map / .diagram-view / .pin-wrap / .rot-handle —
+     those set their own touch-action and pan + pin dragging depend on it. */
   html,body{margin:0;padding:0;height:100%;background:var(--paper);color:var(--ink);
-    font-family:var(--ui);font-size:15px;-webkit-font-smoothing:antialiased;overscroll-behavior:none;}
+    font-family:var(--ui);font-size:var(--base-size,15px);-webkit-font-smoothing:antialiased;
+    overscroll-behavior:none;touch-action:manipulation;}
+  /* Text size setting — compensates for pinch-zoom being locked off. */
+  :root.text-sm{--base-size:14px;}
+  :root.text-lg{--base-size:17px;}
   ::selection{background:var(--blue);color:#fff;}
   :focus-visible{outline:2px solid var(--blue);outline-offset:2px;border-radius:4px;}
   @media (prefers-reduced-motion:reduce){
@@ -384,8 +398,8 @@
   .cam-row{display:flex;align-items:center;gap:9px;padding:8px 0;font-size:12.5px;
     border-bottom:1px solid var(--rule-soft);color:var(--ink-soft);}
   .cam-row:last-child{border-bottom:none;}
-  .cam-row .dot{width:9px;height:9px;background:var(--hivis);border:1px solid var(--ink);
-    border-radius:2px;flex-shrink:0;}
+  .cam-row .dot{width:9px;height:9px;background:var(--pin-fill);border:1px solid rgba(11,18,32,.2);
+    border-radius:3px;flex-shrink:0;}
   .cam-row .id{color:var(--ink);font-weight:600;font-family:var(--data);font-size:12px;}
   .cam-row span:last-child{margin-left:auto;font-family:var(--data);font-size:11px;}
   .group-head{display:flex;align-items:baseline;gap:8px;margin:14px 0 4px;font-family:var(--legend);
@@ -496,22 +510,28 @@
   .orient-ring{position:absolute;inset:-9px;pointer-events:none;transition:transform .12s;}
   .coverage-cone{position:absolute;top:50%;left:50%;width:132px;height:132px;transform:translate(-50%,-50%);
     pointer-events:none;overflow:visible;filter:drop-shadow(0 1px 2px rgba(13,21,32,.18));}
-  .coverage-cone path{fill:rgba(216,237,74,.24);stroke:rgba(197,222,32,.65);stroke-width:1;stroke-linejoin:round;}
-  .pin-wrap.selected .coverage-cone path{fill:rgba(18,86,224,.16);stroke:rgba(18,86,224,.55);}
+  .coverage-cone path{fill:var(--cone-fill);stroke:var(--cone-stroke);stroke-width:1;stroke-linejoin:round;}
+  /* Every pin is blue now, so selection reads as a white halo + denser cone
+     rather than a colour change. */
+  .pin-wrap.selected .coverage-cone path{fill:var(--cone-fill-sel);stroke:var(--cone-stroke-sel);stroke-width:1.5;}
   .orient-arrow{position:absolute;top:1px;left:50%;transform:translateX(-50%);width:0;height:0;
-    border-left:4px solid transparent;border-right:4px solid transparent;border-bottom:7px solid var(--pin-ink);
-    filter:drop-shadow(0 0 1.5px rgba(255,255,255,.95));}
-  .cam-pin{position:absolute;inset:0;background:radial-gradient(circle at 32% 28%, #F1FAAA, var(--hivis) 65%);
-    border:1.75px solid var(--pin-ink);border-radius:50%;
+    border-left:4px solid transparent;border-right:4px solid transparent;border-bottom:7px solid #fff;
+    filter:drop-shadow(0 0 1.5px rgba(11,18,32,.75));}
+  .cam-pin{position:absolute;inset:0;
+    background:radial-gradient(circle at 35% 30%, var(--pin-fill-hi), var(--pin-fill) 70%);
+    border:2px solid var(--pin-stroke);border-radius:50%;
     display:flex;align-items:center;justify-content:center;
-    box-shadow:0 3px 10px -2px rgba(13,21,32,.55), inset 0 1px 1px rgba(255,255,255,.65);}
-  .cam-num{font-family:var(--data);font-weight:700;font-size:13px;color:var(--pin-ink);line-height:1;
+    box-shadow:0 3px 10px -2px rgba(11,18,32,.55), 0 0 0 1px rgba(11,18,32,.10),
+      inset 0 1px 2px rgba(255,255,255,.45);
+    transition:box-shadow .18s;}
+  .cam-num{font-family:var(--data);font-weight:700;font-size:13px;color:var(--pin-num);line-height:1;
     letter-spacing:-.02em;user-select:none;pointer-events:none;}
   .rot-guide{position:absolute;inset:-13px;border-radius:50%;border:1.5px dashed var(--blue);opacity:0;
     transition:opacity .14s;pointer-events:none;background:rgba(255,255,255,.35);}
   .pin-wrap.selected .rot-guide{opacity:1;}
-  .pin-wrap.selected .cam-pin{border-color:var(--blue);
-    box-shadow:0 0 0 3px rgba(18,86,224,.22),0 2px 8px -1px rgba(13,21,32,.45);}
+  .pin-wrap.selected .cam-pin{
+    box-shadow:0 0 0 3.5px rgba(255,255,255,.92), 0 4px 14px -2px rgba(11,18,32,.6),
+      inset 0 1px 2px rgba(255,255,255,.5);}
   .rot-handle{position:absolute;top:-26px;left:50%;margin-left:-15px;width:30px;height:30px;
     border-radius:50%;background:var(--blue);border:2.5px solid #fff;cursor:grab;
     box-shadow:0 2px 7px -1px rgba(13,21,32,.5);opacity:0;pointer-events:none;transition:opacity .14s;
@@ -520,16 +540,32 @@
     width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;
     border-bottom:6px solid #fff;}
   .pin-wrap.selected .rot-handle{opacity:1;pointer-events:auto;}
+  /* GPS "you are here" dot. The 3D read comes from stacking a sphere gradient,
+     a white ring, a cast shadow, a dark hairline (so the ring separates from
+     bright imagery) and a top-edge inset highlight. */
+  .gps-dot{width:22px;height:22px;border-radius:50%;pointer-events:none;
+    background:radial-gradient(circle at 35% 30%, var(--gps-blue-hi), var(--gps-blue) 70%);
+    border:3px solid #fff;
+    box-shadow:0 2px 7px rgba(11,18,32,.45), 0 0 0 1px rgba(11,18,32,.08),
+      inset 0 1px 2px rgba(255,255,255,.55);}
+  :root.big-touch .gps-dot{width:26px;height:26px;}
+
   .diagram-marker{position:absolute;transform:translate(-50%,-50%);z-index:10;}
   .site-pin-icon{width:22px;height:22px;border-radius:50%;background:var(--pin-face);
     border:2.5px solid var(--green);display:flex;align-items:center;justify-content:center;
     box-shadow:0 2px 6px -1px rgba(13,21,32,.4);cursor:pointer;}
-  .site-pin-icon.active-site{border-color:var(--blue);background:var(--blue);}
+  /* Green = location, blue = camera. Keeps the two marker types readable now
+     that camera pins are blue. */
+  .site-pin-icon.active-site{border-color:var(--green);background:var(--green);
+    box-shadow:0 0 0 3px rgba(255,255,255,.85),0 2px 7px -1px rgba(11,18,32,.5);}
   .site-pin-icon .core{width:7px;height:7px;border-radius:50%;background:var(--green);}
   .site-pin-icon.active-site .core{background:#fff;}
-  .mini-pin{width:25px;height:25px;background:var(--hivis);border:2px solid var(--pin-ink);border-radius:6px;
+  .mini-pin{width:25px;height:25px;
+    background:radial-gradient(circle at 35% 30%, var(--pin-fill-hi), var(--pin-fill) 70%);
+    border:2px solid var(--pin-stroke);border-radius:6px;
     display:flex;align-items:center;justify-content:center;font-family:var(--data);font-size:11px;
-    font-weight:600;color:var(--pin-ink);box-shadow:0 2px 6px -1px rgba(13,21,32,.4);cursor:pointer;}
+    font-weight:600;color:var(--pin-num);
+    box-shadow:0 2px 6px -1px rgba(11,18,32,.45),0 0 0 1px rgba(11,18,32,.1);cursor:pointer;}
 
   /* Settings-driven accessibility modes */
   :root.no-cones .coverage-cone{display:none;}
@@ -747,6 +783,24 @@
     }
   };
   window.QCTheme.apply();
+
+  /* iOS Safari ignores user-scalable=no, so pinch-to-zoom on the page has to be
+     blocked directly. Gestures that start inside the map or diagram are left
+     alone — those surfaces have their own pinch-to-zoom. */
+  function inMapSurface(t){
+    return !!(t && t.closest && t.closest('#map, .diagram-view'));
+  }
+  ['gesturestart','gesturechange','gestureend'].forEach(function(evt){
+    document.addEventListener(evt, function(e){
+      if(!inMapSurface(e.target)) e.preventDefault();
+    }, { passive:false });
+  });
+  /* Belt and braces: if a zoom ever does land, don't leave the UI stranded. */
+  function resetPageScroll(){ window.scrollTo(0,0); }
+  window.addEventListener('orientationchange', function(){ setTimeout(resetPageScroll, 120); });
+  document.addEventListener('visibilitychange', function(){
+    if(!document.hidden) resetPageScroll();
+  });
   // Follow the OS only while the preference is 'auto'.
   window.matchMedia('(prefers-color-scheme:dark)').addEventListener('change', function(){
     if(window.QCTheme.pref() === 'auto') window.QCTheme.apply('auto');
@@ -763,7 +817,7 @@
       <div class="pl-mark"><svg viewBox="0 0 100 50" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="qcg" x1="0.25" y1="0" x2="0.75" y2="0"><stop offset="0%" stop-color="#2D3340"/><stop offset="50%" stop-color="#2D3D55"/><stop offset="100%" stop-color="#2E6EE8"/></linearGradient></defs><text x="0" y="43" font-family="Arial Black,Impact,sans-serif" font-weight="900" font-size="52" fill="url(#qcg)" letter-spacing="-4">QC</text></svg></div>
       <div class="pl-titles">
         <h1>Site Mapper</h1>
-        <p>Camera placement · Build 18</p>
+        <p>Camera placement · Build 19</p>
       </div>
       <div class="pl-user">
         <div class="pl-username">
@@ -991,6 +1045,15 @@
     </div>
 
     <div class="set-group">
+      <div class="set-label">Text size</div>
+      <div class="segmented" id="textSeg" role="radiogroup" aria-label="Text size">
+        <button data-text-size="sm" role="radio" aria-checked="false" style="font-size:12px;">Small</button>
+        <button data-text-size="md" role="radio" aria-checked="true" style="font-size:13.5px;">Default</button>
+        <button data-text-size="lg" role="radio" aria-checked="false" style="font-size:15.5px;">Large</button>
+      </div>
+    </div>
+
+    <div class="set-group">
       <div class="set-label">Map</div>
       <label class="set-row" for="setBigTouch">
         <span><b>Larger touch targets</b><i>Bigger pins and buttons for gloved hands</i></span>
@@ -1011,7 +1074,7 @@
       </button>
     </div>
 
-    <p class="set-version">QC Site Mapper · Build 18</p>
+    <p class="set-version">QC Site Mapper · Build 19</p>
   </div>
 </div>
 
@@ -1378,6 +1441,8 @@ function showScreen(which){
   // Both screens stay rendered now, so the map already has size; re-measure once
   // the slide settles in case the viewport changed while it was off-screen.
   if(which === 'workspace'){ setTimeout(() => map.invalidateSize(), 60); setTimeout(() => map.invalidateSize(), 460); }
+  // Don't hold a GPS watch open while the tech is back on the project list.
+  else if(typeof stopGpsWatch === 'function') stopGpsWatch();
 }
 
 /* new project modal */
@@ -2055,6 +2120,50 @@ map.on('dblclick', (e) => {
   addMapCamera(e.latlng.lat, e.latlng.lng);
 });
 
+/* Long-press is the touch-reliable way in: it collides with no browser gesture,
+   unlike double-tap which competes with zoom. Mouse keeps double-click. */
+const LONG_PRESS_MS = 500, LONG_PRESS_SLOP = 10;
+function attachLongPress(el, onFire){
+  let timer = null, sx = 0, sy = 0, pid = null;
+  const cancel = () => { clearTimeout(timer); timer = null; pid = null; };
+  el.addEventListener('pointerdown', (e) => {
+    if(e.pointerType === 'mouse') return;         // desktop uses double-click
+    if(e.isPrimary === false) return;             // ignore second finger (pinch)
+    pid = e.pointerId; sx = e.clientX; sy = e.clientY;
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      timer = null;
+      onFire(e, sx, sy);
+    }, LONG_PRESS_MS);
+  }, true);
+  el.addEventListener('pointermove', (e) => {
+    if(timer === null || e.pointerId !== pid) return;
+    if(Math.hypot(e.clientX - sx, e.clientY - sy) > LONG_PRESS_SLOP) cancel(); // panning
+  }, true);
+  ['pointerup','pointercancel','pointerleave'].forEach(ev =>
+    el.addEventListener(ev, cancel, true));
+}
+
+function longPressFeedback(){
+  if(navigator.vibrate) { try{ navigator.vibrate(15); }catch(e){} }
+}
+
+attachLongPress(document.getElementById('map'), (e, x, y) => {
+  if(e.target.closest && e.target.closest('.pin-wrap, .leaflet-marker-icon')) return;
+  if(isOverview() || !getActiveSite()){ showToast('Pick a location first'); return; }
+  if(!placeGuard()) return;
+  const rect = map.getContainer().getBoundingClientRect();
+  const ll = map.containerPointToLatLng([x - rect.left, y - rect.top]);
+  longPressFeedback();
+  addMapCamera(ll.lat, ll.lng);
+});
+
+/* A long press would otherwise raise the OS context menu over the map. */
+['map','diagramView'].forEach(id => {
+  const el = document.getElementById(id);
+  if(el) el.addEventListener('contextmenu', e => e.preventDefault());
+});
+
 function makeSiteIcon(active){
   return L.divIcon({className:'', html:`<div class="site-pin-icon ${active?'active-site':''}"><div class="core"></div></div>`, iconSize:[22,22], iconAnchor:[11,11]});
 }
@@ -2441,14 +2550,26 @@ diagramView.addEventListener('click', (e) => {
   addDiagramCamera(e.clientX - rect.left, e.clientY - rect.top);
 });
 /* Same double-tap-to-place shortcut on the diagram side. */
+function diagramPlaceBlocked(target){
+  return !!(target.closest('.diagram-marker') || target.closest('.roadway-menu') ||
+            target.closest('.diagram-controls') || target.closest('.center-prompt')) ||
+         (diagramTemplate === 'custom' && drawModeOn) ||
+         isOverview() || !diagramTemplate;
+}
 diagramView.addEventListener('dblclick', (e) => {
-  if(e.target.closest('.diagram-marker') || e.target.closest('.roadway-menu') || e.target.closest('.diagram-controls') || e.target.closest('.center-prompt')) return;
-  if(diagramTemplate === 'custom' && drawModeOn) return;
+  if(diagramPlaceBlocked(e.target)) return;
   if(armed) setArmed(false);
-  if(isOverview() || !diagramTemplate) return;
   if(!placeGuard()) return;
   const rect = diagramView.getBoundingClientRect();
   addDiagramCamera(e.clientX - rect.left, e.clientY - rect.top);
+});
+/* ...and the same long-press fallback. */
+attachLongPress(diagramView, (e, x, y) => {
+  if(diagramPlaceBlocked(e.target)) return;
+  if(!placeGuard()) return;
+  const rect = diagramView.getBoundingClientRect();
+  longPressFeedback();
+  addDiagramCamera(x - rect.left, y - rect.top);
 });
 
 function createDiagramMarkerDom(rec){
@@ -2953,13 +3074,23 @@ function onScanSuccess(text){
 
 /* ---------------- settings ---------------- */
 const PREFS_KEY = 'qc-prefs:v1';
-const prefs = Object.assign({ bigTouch:false, showCones:true }, (() => {
+const prefs = Object.assign({ bigTouch:false, showCones:true, textSize:'md' }, (() => {
   try{ return JSON.parse(localStorage.getItem(PREFS_KEY)) || {}; }catch(e){ return {}; }
 })());
 function savePrefs(){ try{ localStorage.setItem(PREFS_KEY, JSON.stringify(prefs)); }catch(e){} }
 function applyPrefs(){
-  document.documentElement.classList.toggle('big-touch', !!prefs.bigTouch);
-  document.documentElement.classList.toggle('no-cones', !prefs.showCones);
+  const root = document.documentElement;
+  root.classList.toggle('big-touch', !!prefs.bigTouch);
+  root.classList.toggle('no-cones', !prefs.showCones);
+  root.classList.toggle('text-sm', prefs.textSize === 'sm');
+  root.classList.toggle('text-lg', prefs.textSize === 'lg');
+}
+function syncTextSeg(){
+  document.querySelectorAll('#textSeg button').forEach(b => {
+    const on = b.dataset.textSize === (prefs.textSize || 'md');
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-checked', on ? 'true' : 'false');
+  });
 }
 function syncThemeSeg(){
   const pref = QCTheme.pref();
@@ -2976,6 +3107,7 @@ function syncThemeSeg(){
 const settingsModal = document.getElementById('settingsModal');
 async function openSettings(){
   syncThemeSeg();
+  syncTextSeg();
   document.getElementById('setBigTouch').checked = !!prefs.bigTouch;
   document.getElementById('setShowCones').checked = !!prefs.showCones;
   settingsModal.classList.add('show');
@@ -2995,6 +3127,12 @@ document.getElementById('themeSeg').addEventListener('click', e => {
   if(!btn) return;
   QCTheme.set(btn.dataset.themePref);
   syncThemeSeg();
+});
+document.getElementById('textSeg').addEventListener('click', e => {
+  const btn = e.target.closest('[data-text-size]');
+  if(!btn) return;
+  prefs.textSize = btn.dataset.textSize;
+  savePrefs(); applyPrefs(); syncTextSeg();
 });
 document.getElementById('setBigTouch').addEventListener('change', e => {
   prefs.bigTouch = e.target.checked; savePrefs(); applyPrefs();
@@ -3025,6 +3163,46 @@ document.getElementById('openProjectFile').addEventListener('change', async (e) 
 document.getElementById('saveProjectFileBtn').addEventListener('click', exportProjectFile);
 
 /* =========================== GPS LOCATE =========================== */
+/* ---------------- GPS location marker (Apple Maps style) ---------------- */
+/* Two layers: an L.circle sized to the real accuracy in metres, and a divIcon
+   blue dot on top. pointer-events stay off so the dot never eats a tap meant
+   for placing a camera where the tech is standing. */
+let gpsDot = null, gpsHalo = null, gpsWatchId = null;
+
+function showGpsPosition(pos, fly){
+  if(typeof map === 'undefined' || !map) return;
+  const ll = [pos.coords.latitude, pos.coords.longitude];
+  const acc = Math.max(pos.coords.accuracy || 0, 3);
+
+  if(!gpsHalo){
+    gpsHalo = L.circle(ll, { radius: acc, interactive:false,
+      color:'transparent', weight:0, fillColor:'#7A8CA5', fillOpacity:.22 }).addTo(map);
+  } else {
+    gpsHalo.setLatLng(ll); gpsHalo.setRadius(acc);
+  }
+
+  if(!gpsDot){
+    gpsDot = L.marker(ll, {
+      interactive:false, keyboard:false, zIndexOffset:500,
+      icon: L.divIcon({ className:'', iconSize:[22,22], iconAnchor:[11,11],
+        html:'<div class="gps-dot"></div>' })
+    }).addTo(map);
+  } else {
+    gpsDot.setLatLng(ll);
+  }
+
+  if(fly) map.flyTo(ll, Math.max(map.getZoom(), 18), { duration: 1 });
+}
+
+function stopGpsWatch(){
+  if(gpsWatchId !== null){ navigator.geolocation.clearWatch(gpsWatchId); gpsWatchId = null; }
+}
+function clearGpsMarker(){
+  stopGpsWatch();
+  if(gpsDot){ map.removeLayer(gpsDot); gpsDot = null; }
+  if(gpsHalo){ map.removeLayer(gpsHalo); gpsHalo = null; }
+}
+
 document.getElementById('gpsBtn').addEventListener('click', function(){
   const btn = this;
   if(!('geolocation' in navigator)){ showToast('GPS not available on this device'); return; }
@@ -3032,9 +3210,15 @@ document.getElementById('gpsBtn').addEventListener('click', function(){
   navigator.geolocation.getCurrentPosition(
     pos => {
       btn.classList.remove('locating');
-      if(typeof map !== 'undefined' && map){
-        map.flyTo([pos.coords.latitude, pos.coords.longitude], 18, {duration: 1});
-      }
+      showGpsPosition(pos, true);
+      // Keep the dot honest rather than letting it go stale. The watch is
+      // stopped on leaving the workspace so it isn't draining GPS all day.
+      stopGpsWatch();
+      gpsWatchId = navigator.geolocation.watchPosition(
+        p => showGpsPosition(p, false),
+        () => {},
+        { enableHighAccuracy: true, maximumAge: 2000, timeout: 15000 }
+      );
     },
     err => {
       btn.classList.remove('locating');

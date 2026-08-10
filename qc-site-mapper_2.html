@@ -1,0 +1,2596 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0D1520">
+<title>QC Site Mapper</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Site Mapper">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F7F9FB; --card:#FFFFFF; --wash:#EDF1F6; --rule:#DCE3EC; --rule-soft:#E9EEF4;
+    --ink:#0D1520; --ink-soft:#5B6878; --blue:#1256E0; --blue-deep:#0A2E6B; --blue-wash:#E7EFFE;
+    --hivis:#D8ED4A; --green:#0E8F57; --red:#C9384F; --amber:#B7791F;
+    --night:#0D1520; --night-2:#18222F; --night-rule:#28374A; --night-soft:#8B9AAC;
+    --ui:'Barlow',system-ui,sans-serif; --legend:'Barlow Condensed',system-ui,sans-serif;
+    --data:'IBM Plex Mono',ui-monospace,monospace;
+    --r:4px; --shadow:0 1px 2px rgba(13,21,32,.05), 0 8px 24px -12px rgba(13,21,32,.18);
+    --safe-b:env(safe-area-inset-bottom, 0px);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;height:100%;background:var(--paper);color:var(--ink);
+    font-family:var(--ui);font-size:15px;-webkit-font-smoothing:antialiased;overscroll-behavior:none;}
+  ::selection{background:var(--ink);color:#fff;}
+  :focus-visible{outline:2px solid var(--blue);outline-offset:2px;border-radius:2px;}
+  @media (prefers-reduced-motion:reduce){*{transition:none !important;animation:none !important;}}
+
+  .screen{display:none;height:100%;flex-direction:column;}
+  .screen.active{display:flex;}
+
+  /* ============ SCREEN 1 — PROJECT LIST ============ */
+  #screenProjects{background:var(--night);color:#fff;overflow:hidden;}
+  .pl-head{padding:22px 20px 16px;padding-top:calc(22px + env(safe-area-inset-top,0px));
+    border-bottom:1px solid var(--night-rule);flex-shrink:0;}
+  .pl-top{display:flex;align-items:center;gap:12px;margin-bottom:16px;}
+  .pl-mark{width:36px;height:36px;background:var(--blue);border-radius:6px;display:flex;
+    align-items:center;justify-content:center;flex-shrink:0;
+    box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.9), inset 0 0 0 3px var(--blue);}
+  .pl-mark span{font-family:var(--legend);font-weight:700;font-size:15px;color:#fff;letter-spacing:.04em;}
+  .pl-titles{line-height:1.1;flex:1;min-width:0;}
+  .pl-titles h1{margin:0;font-family:var(--legend);font-size:23px;font-weight:700;
+    text-transform:uppercase;letter-spacing:.05em;color:#fff;}
+  .pl-titles p{margin:2px 0 0;font-family:var(--data);font-size:10px;color:var(--night-soft);
+    text-transform:uppercase;letter-spacing:.15em;}
+  .pl-user{display:flex;align-items:center;gap:9px;flex-shrink:0;}
+  .pl-avatar{width:36px;height:36px;border-radius:50%;background:var(--night-2);
+    border:1px solid var(--night-rule);color:#fff;display:flex;align-items:center;
+    justify-content:center;font-family:var(--legend);font-weight:700;font-size:13px;}
+  .pl-username{line-height:1.2;text-align:right;}
+  .pl-username b{display:block;font-size:13px;font-weight:600;color:#fff;}
+  .pl-username span{font-family:var(--legend);font-size:11px;color:var(--night-soft);
+    text-transform:uppercase;letter-spacing:.07em;}
+  .sync-pill{display:inline-flex;align-items:center;gap:7px;background:var(--night-2);
+    border:1px solid var(--night-rule);border-radius:20px;padding:6px 13px;font-size:12px;
+    color:var(--night-soft);}
+  .sync-dot{width:7px;height:7px;border-radius:50%;background:var(--amber);flex-shrink:0;}
+  .sync-dot.live{background:var(--green);}
+
+  .pl-body{flex:1;overflow-y:auto;padding:16px 20px calc(100px + var(--safe-b));}
+  .pl-section{font-family:var(--legend);font-size:12px;text-transform:uppercase;
+    letter-spacing:.14em;color:var(--night-soft);font-weight:600;margin:6px 0 10px;
+    display:flex;align-items:center;gap:9px;}
+  .pl-section::after{content:"";flex:1;height:1px;background:var(--night-rule);}
+
+  .proj-row{display:flex;gap:6px;margin-bottom:10px;}
+  .proj-card{width:100%;text-align:left;background:var(--night-2);border:1px solid var(--night-rule);
+    border-radius:8px;padding:15px 16px;margin-bottom:0;cursor:pointer;display:block;flex:1;min-width:0;
+    transition:border-color .14s,transform .1s;color:inherit;font-family:inherit;}
+  .proj-card:hover{border-color:var(--blue);}
+  .proj-card:active{transform:scale(.995);}
+  .proj-del{flex-shrink:0;align-self:flex-start;margin-top:15px;background:none;
+    border:1px solid var(--night-rule);color:#61707F;border-radius:6px;width:30px;height:30px;
+    font-size:13px;cursor:pointer;transition:border-color .14s,color .14s;}
+  .proj-del:hover{border-color:var(--red);color:var(--red);}
+  .proj-order{display:flex;align-items:center;gap:10px;}
+  .proj-order b{font-size:19px;font-weight:700;color:#fff;letter-spacing:.01em;font-family:var(--data);}
+  .proj-name{margin-top:3px;font-size:14px;color:var(--night-soft);line-height:1.35;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .proj-meta{margin-top:9px;display:flex;gap:14px;font-family:var(--data);font-size:10.5px;
+    color:#61707F;letter-spacing:.02em;}
+  .chip{font-family:var(--legend);font-size:11px;text-transform:uppercase;letter-spacing:.1em;
+    font-weight:600;padding:3px 9px;border-radius:20px;margin-left:auto;flex-shrink:0;}
+  .chip.draft{background:rgba(183,121,31,.18);color:#E3A94A;border:1px solid rgba(183,121,31,.4);}
+  .chip.submitted{background:rgba(14,143,87,.16);color:#3FCB8B;border:1px solid rgba(14,143,87,.42);}
+  .pl-empty{text-align:center;padding:46px 20px;color:var(--night-soft);}
+  .pl-empty .big{font-size:38px;margin-bottom:12px;opacity:.35;}
+  .pl-empty p{margin:0;font-size:14px;line-height:1.6;}
+
+  .fab{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + var(--safe-b));
+    z-index:50;background:var(--blue);color:#fff;border:none;border-radius:26px;padding:14px 26px;
+    font-family:var(--ui);font-weight:600;font-size:15px;cursor:pointer;
+    box-shadow:0 10px 28px -8px rgba(18,86,224,.7);display:inline-flex;align-items:center;gap:9px;}
+  .fab:hover{background:#0a53df;}
+  .fab .glyph{font-size:17px;line-height:1;}
+
+  /* ============ SCREEN 2 — WORKSPACE ============ */
+  #screenWorkspace{background:var(--paper);}
+  header{background:var(--card);border-bottom:1px solid var(--rule);padding:0 16px;min-height:60px;
+    padding-top:env(safe-area-inset-top,0px);display:flex;align-items:center;gap:14px;flex-shrink:0;}
+  .back-btn{background:none;border:1px solid var(--rule);border-radius:var(--r);width:36px;height:36px;
+    display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--ink);
+    font-size:17px;flex-shrink:0;transition:border-color .14s,color .14s;}
+  .back-btn:hover{border-color:var(--blue);color:var(--blue);}
+  .ws-title{line-height:1.15;min-width:0;flex-shrink:1;}
+  .ws-title b{display:block;font-family:var(--data);font-size:15px;font-weight:600;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .ws-title span{font-size:12.5px;color:var(--ink-soft);overflow:hidden;text-overflow:ellipsis;
+    white-space:nowrap;display:block;}
+  .ws-status{font-family:var(--legend);font-size:11px;text-transform:uppercase;letter-spacing:.1em;
+    font-weight:600;padding:3px 9px;border-radius:20px;flex-shrink:0;}
+  .ws-status.draft{background:#FCF3E3;color:var(--amber);border:1px solid #EFD9AE;}
+  .ws-status.submitted{background:#E6F6EE;color:var(--green);border:1px solid #B6E3CD;}
+  .ws-actions{margin-left:auto;display:flex;gap:8px;align-items:center;flex-shrink:0;}
+  .ws-date{display:flex;flex-direction:column;gap:2px;padding-right:14px;border-right:1px solid var(--rule-soft);}
+  .ws-date label{font-family:var(--legend);font-size:10.5px;text-transform:uppercase;
+    letter-spacing:.13em;color:var(--ink-soft);font-weight:600;}
+  .ws-date input{background:transparent;border:none;border-bottom:1.5px solid transparent;
+    font-family:var(--data);font-size:13px;color:var(--ink);padding:1px 0;}
+  .ws-date input:focus{outline:none;border-bottom-color:var(--blue);}
+
+  input[type="file"]{display:none;}
+  .btn{border:1px solid var(--rule);background:var(--card);color:var(--ink);padding:8px 13px;
+    border-radius:var(--r);font-family:var(--ui);font-weight:600;font-size:13px;cursor:pointer;
+    display:inline-flex;align-items:center;justify-content:center;gap:7px;white-space:nowrap;
+    transition:border-color .14s,background .14s,color .14s;line-height:1.2;}
+  .btn:hover{border-color:var(--blue);color:var(--blue);background:var(--blue-wash);}
+  .btn.primary{background:var(--blue);color:#fff;border-color:var(--blue);}
+  .btn.primary:hover{background:var(--blue-deep);border-color:var(--blue-deep);color:#fff;}
+  .btn.small{padding:6px 10px;font-size:12px;}
+  .btn.toggled{background:var(--ink);color:#fff;border-color:var(--ink);}
+  .full-width{width:100%;margin-top:9px;}
+
+  main{flex:1;display:flex;overflow:hidden;position:relative;}
+  .sidebar{width:300px;flex-shrink:0;background:var(--card);border-right:1px solid var(--rule);
+    display:flex;flex-direction:column;overflow:hidden;transition:width .18s;}
+  .sidebar-groups{flex:1;overflow-y:auto;overscroll-behavior:contain;}
+  .sidebar-groups::-webkit-scrollbar{width:9px;}
+  .sidebar-groups::-webkit-scrollbar-thumb{background:var(--rule);border-radius:9px;border:3px solid var(--card);}
+  .sidebar-tabs{display:flex;align-items:center;gap:4px;padding:10px 12px;
+    border-bottom:1px solid var(--rule);flex-shrink:0;}
+  .sidebar-tab-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;
+    background:transparent;border:1px solid transparent;border-radius:var(--r);padding:7px 4px;
+    cursor:pointer;color:var(--ink-soft);font-family:var(--legend);font-size:10.5px;
+    text-transform:uppercase;letter-spacing:.06em;font-weight:600;
+    transition:background .14s,color .14s;white-space:nowrap;}
+  .sidebar-tab-btn .stb-glyph{font-size:15px;line-height:1;}
+  .sidebar-tab-btn:hover{background:var(--blue-wash);color:var(--blue-deep);}
+  .sidebar-tab-btn.active{background:var(--blue-deep);color:#fff;}
+  .sidebar-collapse-btn{flex-shrink:0;background:transparent;border:1px solid var(--rule);
+    border-radius:var(--r);width:26px;height:26px;color:var(--ink-soft);cursor:pointer;
+    font-size:13px;line-height:1;}
+  .sidebar-collapse-btn:hover{border-color:var(--blue);color:var(--blue);}
+  .sidebar.collapsed{width:58px;}
+  .sidebar.collapsed .stb-label,.sidebar.collapsed .sidebar-groups,
+  .sidebar.collapsed .sidebar-collapse-btn{display:none;}
+  .sidebar.collapsed .sidebar-tabs{flex-direction:column;padding:10px 6px;}
+  .sidebar-expand-btn{display:none;position:absolute;left:58px;top:16px;z-index:20;
+    background:var(--card);border:1px solid var(--rule);border-left:none;border-radius:0 6px 6px 0;
+    width:20px;height:36px;color:var(--ink-soft);cursor:pointer;font-size:12px;box-shadow:var(--shadow);}
+  .sidebar-expand-btn.show{display:block;}
+  .sidebar-expand-btn:hover{color:var(--blue);border-color:var(--blue);}
+  .sidebar-section{padding:16px 18px 18px;border-bottom:1px solid var(--rule-soft);}
+  .sidebar-section.group-hidden{display:none;}
+  .sidebar-section h3{font-family:var(--legend);font-size:12px;text-transform:uppercase;
+    letter-spacing:.14em;color:var(--ink-soft);margin:0 0 12px;font-weight:600;
+    display:flex;align-items:center;gap:9px;}
+  .sidebar-section h3::after{content:"";flex:1;height:1px;background:var(--rule-soft);}
+  .empty-hint{font-size:13px;color:var(--ink-soft);line-height:1.55;}
+  .help{font-size:12px;color:var(--ink-soft);line-height:1.6;margin-top:10px;
+    padding-left:9px;border-left:2px solid var(--rule);}
+  .help b{color:var(--ink);font-weight:600;}
+
+  .site-tab{display:block;width:100%;text-align:left;background:transparent;border:1px solid var(--rule);
+    border-radius:var(--r);color:var(--ink);padding:9px 11px;margin-bottom:5px;font-size:13.5px;
+    font-weight:500;font-family:var(--ui);cursor:pointer;line-height:1.3;
+    transition:border-color .14s,background .14s;}
+  .site-tab:hover{border-color:var(--blue);background:var(--blue-wash);}
+  .site-tab.active{background:var(--blue-deep);border-color:var(--blue-deep);color:#fff;}
+  .site-tab .coords{display:block;font-family:var(--data);font-size:10.5px;opacity:.62;margin-top:4px;}
+  .site-tab.overview{border-style:dashed;font-family:var(--legend);text-transform:uppercase;
+    letter-spacing:.1em;font-weight:600;font-size:13.5px;margin-bottom:9px;}
+  .site-tab.overview.active{border-style:solid;}
+
+  .site-row{display:flex;align-items:stretch;gap:5px;margin-bottom:5px;}
+  .site-row .site-tab{margin-bottom:0;flex:1;min-width:0;}
+  .site-edit,.site-del{background:none;border:1px solid var(--rule);color:#B3BECC;font-size:13px;
+    cursor:pointer;padding:0 9px;flex-shrink:0;border-radius:var(--r);}
+  .site-edit:hover{border-color:var(--blue);color:var(--blue);}
+  .site-del:hover{border-color:var(--red);color:var(--red);}
+
+  .slot-row{display:flex;align-items:center;gap:7px;margin-bottom:6px;}
+  .slot-row label{font-family:var(--legend);font-size:12px;font-weight:600;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--ink-soft);width:46px;flex-shrink:0;}
+  .slot-row input{flex:1;min-width:0;background:var(--wash);border:1px solid transparent;
+    border-radius:var(--r);padding:8px 9px;font-family:var(--data);font-size:12.5px;color:var(--ink);}
+  .slot-row input:focus{outline:none;border-color:var(--blue);background:var(--card);}
+  .slot-del{background:none;border:none;color:#B3BECC;font-size:14px;cursor:pointer;padding:4px 5px;
+    line-height:1;flex-shrink:0;border-radius:3px;}
+  .slot-del:hover{color:var(--red);}
+  .add-slot-btn{width:100%;background:transparent;border:1px dashed var(--rule);color:var(--ink-soft);
+    border-radius:var(--r);padding:9px;font-size:12.5px;font-family:var(--ui);font-weight:600;
+    cursor:pointer;margin-top:3px;}
+  .add-slot-btn:hover{border-color:var(--blue);color:var(--blue);}
+
+  .route-stop{display:flex;align-items:center;gap:8px;padding:8px 0;
+    border-bottom:1px solid var(--rule-soft);font-size:13px;}
+  .route-stop:last-child{border-bottom:none;}
+  .route-stop .idx{width:21px;height:21px;border-radius:3px;background:var(--wash);color:var(--blue-deep);
+    display:flex;align-items:center;justify-content:center;font-family:var(--data);font-size:10.5px;
+    font-weight:600;flex-shrink:0;}
+  .route-stop .rname{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .route-stop button{background:none;border:1px solid var(--rule);border-radius:3px;color:var(--ink-soft);
+    cursor:pointer;font-size:11px;width:26px;height:26px;line-height:1;flex-shrink:0;padding:0;}
+  .route-stop button:hover{border-color:var(--blue);color:var(--blue);}
+  .route-stop button.rm:hover{border-color:var(--red);color:var(--red);}
+  .route-apps{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:12px;}
+
+  .cam-row{display:flex;align-items:center;gap:9px;padding:8px 0;font-size:12.5px;
+    border-bottom:1px solid var(--rule-soft);color:var(--ink-soft);}
+  .cam-row:last-child{border-bottom:none;}
+  .cam-row .dot{width:9px;height:9px;background:var(--hivis);border:1px solid var(--ink);
+    border-radius:2px;flex-shrink:0;}
+  .cam-row .id{color:var(--ink);font-weight:600;font-family:var(--data);font-size:12px;}
+  .cam-row span:last-child{margin-left:auto;font-family:var(--data);font-size:11px;}
+  .group-head{display:flex;align-items:baseline;gap:8px;margin:14px 0 4px;font-family:var(--legend);
+    font-size:12.5px;text-transform:uppercase;letter-spacing:.09em;font-weight:600;color:var(--ink);}
+  .group-head:first-child{margin-top:0;}
+  .group-head .count{font-family:var(--data);font-size:10.5px;letter-spacing:0;color:var(--ink-soft);
+    text-transform:none;margin-left:auto;}
+  .overview-note{background:var(--blue-wash);border-radius:var(--r);padding:10px 12px;font-size:12.5px;
+    color:var(--blue-deep);line-height:1.5;margin-bottom:10px;}
+
+  /* ---------- CANVAS ---------- */
+  .canvas-wrap{flex:1;position:relative;display:flex;flex-direction:column;min-width:0;}
+  .canvas-topbar{position:absolute;top:12px;left:50%;transform:translateX(-50%);z-index:1000;
+    display:flex;gap:8px;align-items:center;max-width:calc(100% - 20px);}
+  .mode-toggle{background:var(--card);border:1px solid var(--rule);border-radius:var(--r);
+    display:flex;padding:3px;gap:2px;box-shadow:var(--shadow);}
+  .mode-toggle button{border:none;background:transparent;color:var(--ink-soft);padding:7px 16px;
+    border-radius:2px;font-family:var(--legend);font-weight:600;font-size:14px;text-transform:uppercase;
+    letter-spacing:.1em;cursor:pointer;}
+  .mode-toggle button.active{background:var(--blue-deep);color:#fff;}
+  .add-cam-btn{display:inline-flex;align-items:center;gap:8px;background:var(--blue);color:#fff;
+    border:1px solid var(--blue);border-radius:var(--r);padding:9px 15px;cursor:pointer;
+    font-family:var(--ui);font-weight:600;font-size:13.5px;white-space:nowrap;box-shadow:var(--shadow);}
+  .add-cam-btn:hover{background:var(--blue-deep);border-color:var(--blue-deep);}
+  .add-cam-btn .glyph{font-size:15px;line-height:1;}
+  .add-cam-btn.armed{background:var(--ink);border-color:var(--ink);}
+  .arm-banner{position:absolute;top:60px;left:50%;transform:translateX(-50%) translateY(-6px);z-index:999;
+    background:var(--ink);color:#fff;padding:7px 15px;border-radius:20px;font-size:12.5px;font-weight:500;
+    opacity:0;pointer-events:none;white-space:nowrap;transition:opacity .16s,transform .16s;box-shadow:var(--shadow);}
+  .arm-banner.show{opacity:1;transform:translateX(-50%) translateY(0);}
+  #map{flex:1;background:#E4EAF1;}
+  #map.arming,.diagram-view.arming{cursor:crosshair;}
+  .leaflet-tile-pane{filter:saturate(.52) brightness(1.06) contrast(.94);}
+  .leaflet-container{font-family:var(--ui);}
+  .leaflet-control-zoom a{border-radius:2px !important;color:var(--ink) !important;}
+  .leaflet-popup-content-wrapper,.leaflet-popup-tip{background:var(--card);color:var(--ink);}
+  .leaflet-popup-content-wrapper{border-radius:var(--r);box-shadow:var(--shadow);}
+  .leaflet-popup-content{font-family:var(--data);font-size:12px;}
+  .leaflet-tooltip{font-family:var(--ui);font-size:12px;font-weight:500;border-radius:3px;
+    border:1px solid var(--rule);box-shadow:var(--shadow);}
+
+  .diagram-view{flex:1;display:none;position:relative;overflow:hidden;touch-action:none;
+    background-color:#FBFCFE;
+    background-image:linear-gradient(var(--rule-soft) 1px, transparent 1px),
+                     linear-gradient(90deg, var(--rule-soft) 1px, transparent 1px);
+    background-size:28px 28px;}
+  .diagram-view.active{display:block;}
+  .diagram-view.placing{cursor:crosshair;}
+  .diagram-view.drawing{cursor:cell;}
+  #map.hidden{display:none;}
+  .center-prompt{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:3;
+    text-align:center;cursor:pointer;user-select:none;}
+  .center-prompt .plus{width:58px;height:58px;border-radius:50%;border:1.5px dashed var(--rule);
+    display:flex;align-items:center;justify-content:center;margin:0 auto 14px;font-size:24px;
+    color:var(--blue);background:var(--card);}
+  .center-prompt:hover .plus{border-color:var(--blue);}
+  .center-prompt p{color:var(--ink-soft);font-family:var(--legend);font-size:14px;
+    text-transform:uppercase;letter-spacing:.11em;margin:0;}
+  .roadway-menu{position:absolute;z-index:2000;background:var(--card);border:1px solid var(--rule);
+    border-radius:6px;padding:6px;box-shadow:0 16px 40px -12px rgba(13,21,32,.35);display:flex;
+    flex-direction:column;gap:1px;min-width:218px;}
+  .roadway-menu button{text-align:left;background:transparent;border:none;color:var(--ink);
+    padding:10px 11px;border-radius:3px;font-family:var(--ui);font-size:13.5px;font-weight:500;cursor:pointer;}
+  .roadway-menu button:hover{background:var(--blue-wash);color:var(--blue-deep);}
+  .roadway-menu .divider{height:1px;background:var(--rule-soft);margin:5px 2px;}
+  .diagram-controls{position:absolute;top:64px;right:14px;z-index:5;background:var(--card);
+    border:1px solid var(--rule);border-radius:6px;padding:12px;display:none;flex-direction:column;
+    gap:9px;box-shadow:var(--shadow);min-width:184px;}
+  .diagram-controls.visible{display:flex;}
+  .diagram-controls .row-label{font-family:var(--legend);font-size:11.5px;text-transform:uppercase;
+    color:var(--ink-soft);letter-spacing:.14em;font-weight:600;}
+  .street-inputs{display:flex;flex-direction:column;gap:6px;}
+  .street-inputs input{background:var(--wash);border:1px solid transparent;border-radius:var(--r);
+    color:var(--ink);padding:7px 9px;font-size:12.5px;font-family:var(--data);width:100%;}
+  .street-inputs input:focus{outline:none;border-color:var(--blue);background:var(--card);}
+  .draw-row{display:flex;gap:6px;}
+  .draw-row .btn{flex:1;}
+  .diagram-hint{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);z-index:4;
+    color:var(--ink-soft);font-size:12px;background:var(--card);padding:7px 14px;border-radius:20px;
+    border:1px solid var(--rule);white-space:nowrap;max-width:92%;overflow:hidden;text-overflow:ellipsis;
+    box-shadow:var(--shadow);}
+
+  /* ---------- PINS ---------- */
+  .pin-wrap{position:relative;width:34px;height:34px;touch-action:none;cursor:grab;}
+  .pin-wrap:active{cursor:grabbing;}
+  .orient-ring{position:absolute;inset:-9px;pointer-events:none;transition:transform .12s;}
+  .coverage-cone{position:absolute;top:50%;left:50%;width:132px;height:132px;transform:translate(-50%,-50%);
+    pointer-events:none;overflow:visible;filter:drop-shadow(0 1px 2px rgba(13,21,32,.18));}
+  .coverage-cone path{fill:rgba(216,237,74,.24);stroke:rgba(197,222,32,.65);stroke-width:1;stroke-linejoin:round;}
+  .pin-wrap.selected .coverage-cone path{fill:rgba(18,86,224,.16);stroke:rgba(18,86,224,.55);}
+  .orient-arrow{position:absolute;top:1px;left:50%;transform:translateX(-50%);width:0;height:0;
+    border-left:4px solid transparent;border-right:4px solid transparent;border-bottom:7px solid var(--ink);
+    filter:drop-shadow(0 0 1.5px rgba(255,255,255,.95));}
+  .cam-pin{position:absolute;inset:0;background:radial-gradient(circle at 32% 28%, #F1FAAA, var(--hivis) 65%);
+    border:1.75px solid var(--ink);border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    box-shadow:0 3px 10px -2px rgba(13,21,32,.55), inset 0 1px 1px rgba(255,255,255,.65);}
+  .cam-num{font-family:var(--data);font-weight:700;font-size:13px;color:var(--ink);line-height:1;
+    letter-spacing:-.02em;user-select:none;pointer-events:none;}
+  .rot-guide{position:absolute;inset:-13px;border-radius:50%;border:1.5px dashed var(--blue);opacity:0;
+    transition:opacity .14s;pointer-events:none;background:rgba(255,255,255,.35);}
+  .pin-wrap.selected .rot-guide{opacity:1;}
+  .pin-wrap.selected .cam-pin{border-color:var(--blue);
+    box-shadow:0 0 0 3px rgba(18,86,224,.22),0 2px 8px -1px rgba(13,21,32,.45);}
+  .rot-handle{position:absolute;top:-26px;left:50%;margin-left:-15px;width:30px;height:30px;
+    border-radius:50%;background:var(--blue);border:2.5px solid #fff;cursor:grab;
+    box-shadow:0 2px 7px -1px rgba(13,21,32,.5);opacity:0;pointer-events:none;transition:opacity .14s;
+    touch-action:none;}
+  .rot-handle::after{content:"";position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+    width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;
+    border-bottom:6px solid #fff;}
+  .pin-wrap.selected .rot-handle{opacity:1;pointer-events:auto;}
+  .diagram-marker{position:absolute;transform:translate(-50%,-50%);z-index:10;}
+  .site-pin-icon{width:22px;height:22px;border-radius:50%;background:var(--card);
+    border:2.5px solid var(--green);display:flex;align-items:center;justify-content:center;
+    box-shadow:0 2px 6px -1px rgba(13,21,32,.4);cursor:pointer;}
+  .site-pin-icon.active-site{border-color:var(--blue);background:var(--blue);}
+  .site-pin-icon .core{width:7px;height:7px;border-radius:50%;background:var(--green);}
+  .site-pin-icon.active-site .core{background:#fff;}
+  .mini-pin{width:25px;height:25px;background:var(--hivis);border:2px solid var(--ink);border-radius:4px;
+    display:flex;align-items:center;justify-content:center;font-family:var(--data);font-size:11px;
+    font-weight:600;color:var(--ink);box-shadow:0 2px 6px -1px rgba(13,21,32,.4);cursor:pointer;}
+
+  /* ---------- PIN INSPECTOR ---------- */
+  .pin-inspector{position:absolute;bottom:16px;left:50%;transform:translateX(-50%) translateY(10px);
+    z-index:1200;background:var(--card);border:1px solid var(--rule);border-radius:10px;padding:14px 16px;
+    width:296px;max-width:calc(100% - 24px);box-shadow:0 18px 44px -14px rgba(13,21,32,.42);
+    display:none;opacity:0;transition:opacity .16s,transform .16s;}
+  .pin-inspector.show{display:block;opacity:1;transform:translateX(-50%) translateY(0);}
+  .pi-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+  .pi-head span{font-family:var(--legend);font-size:16px;font-weight:700;text-transform:uppercase;
+    letter-spacing:.09em;}
+  .pi-head button{background:none;border:none;color:var(--ink-soft);font-size:17px;cursor:pointer;
+    line-height:1;padding:3px 5px;}
+  .pi-field{margin-bottom:13px;}
+  .pi-field label{display:flex;align-items:baseline;justify-content:space-between;font-family:var(--legend);
+    font-size:11.5px;text-transform:uppercase;letter-spacing:.13em;color:var(--ink-soft);font-weight:600;
+    margin-bottom:6px;}
+  .pi-heading{font-family:var(--data);font-size:11.5px;letter-spacing:0;text-transform:none;
+    color:var(--blue-deep);font-weight:600;}
+  .pi-field input[type="text"]{width:100%;background:var(--wash);border:1px solid transparent;
+    border-radius:var(--r);padding:9px 10px;font-family:var(--data);font-size:14px;font-weight:600;color:var(--ink);}
+  .pi-field input[type="text"]:focus{outline:none;border-color:var(--blue);background:var(--card);}
+  .pi-field input[type="range"]{width:100%;-webkit-appearance:none;appearance:none;height:5px;
+    border-radius:3px;background:var(--wash);outline:none;}
+  .pi-field input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:22px;
+    height:22px;border-radius:50%;background:var(--blue);cursor:grab;border:2px solid #fff;
+    box-shadow:0 1px 4px rgba(13,21,32,.3);}
+  .pi-field input[type="range"]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;
+    background:var(--blue);cursor:grab;border:2px solid #fff;}
+  .pi-delete{width:100%;background:transparent;border:1px solid var(--rule);color:var(--red);
+    border-radius:var(--r);padding:10px;font-family:var(--ui);font-weight:600;font-size:13px;cursor:pointer;}
+  .pi-delete:hover{background:#FCEEF0;border-color:var(--red);}
+
+  /* ---------- MOBILE CHROME ---------- */
+  .tabbar{display:none;}
+  .scrim{display:none;position:fixed;inset:0;background:rgba(13,21,32,.42);z-index:1400;}
+  .scrim.show{display:block;}
+  .sheet-grip{display:none;}
+
+  /* ---------- MODALS / TOAST ---------- */
+  .toast{position:fixed;bottom:calc(24px + var(--safe-b));left:50%;
+    transform:translateX(-50%) translateY(14px);background:var(--ink);color:#fff;padding:11px 18px;
+    border-radius:5px;font-size:13.5px;font-weight:500;opacity:0;pointer-events:none;
+    transition:opacity .18s,transform .18s;z-index:5000;box-shadow:0 12px 32px -10px rgba(13,21,32,.55);
+    max-width:88vw;text-align:center;}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+  .modal-overlay{position:fixed;inset:0;background:rgba(13,21,32,.55);backdrop-filter:blur(2px);
+    z-index:4000;display:none;align-items:center;justify-content:center;padding:16px;}
+  .modal-overlay.show{display:flex;}
+  .modal-card{background:var(--card);border-radius:10px;padding:20px;width:380px;max-width:100%;
+    box-shadow:0 30px 70px -20px rgba(0,0,0,.5);max-height:90vh;overflow-y:auto;}
+  .modal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
+  .modal-head h3{margin:0;font-family:var(--legend);font-size:18px;text-transform:uppercase;
+    letter-spacing:.09em;font-weight:700;}
+  .modal-close{background:none;border:none;font-size:22px;cursor:pointer;color:var(--ink-soft);
+    line-height:1;padding:0 3px;}
+  .m-field{margin-bottom:14px;}
+  .m-field label{display:block;font-family:var(--legend);font-size:11.5px;text-transform:uppercase;
+    letter-spacing:.13em;color:var(--ink-soft);font-weight:600;margin-bottom:6px;}
+  .m-field input[type="text"]{width:100%;background:var(--wash);border:1px solid transparent;
+    border-radius:var(--r);padding:10px 11px;font-family:var(--data);font-size:14px;color:var(--ink);}
+  .m-field input[type="text"]:focus{outline:none;border-color:var(--blue);background:var(--card);}
+  .m-hint{font-size:12px;color:var(--ink-soft);line-height:1.55;margin-top:6px;}
+  .kmz-drop{border:1.5px dashed var(--rule);border-radius:6px;padding:16px;text-align:center;
+    cursor:pointer;transition:border-color .14s,background .14s;}
+  .kmz-drop:hover{border-color:var(--blue);background:var(--blue-wash);}
+  .kmz-drop .kd-title{font-weight:600;font-size:13.5px;}
+  .kmz-drop .kd-sub{font-size:12px;color:var(--ink-soft);margin-top:3px;line-height:1.45;}
+  .kmz-drop.loaded{border-style:solid;border-color:var(--green);background:#F1FAF5;}
+  .kmz-drop.dragover{border-style:solid;border-color:var(--blue);background:var(--blue-wash);}
+  .sf-item{display:block;width:100%;text-align:left;background:var(--wash);border:1px solid transparent;
+    border-radius:var(--r);padding:10px 12px;margin-bottom:6px;font-family:var(--data);font-size:13px;
+    color:var(--ink);cursor:pointer;transition:border-color .14s,background .14s;}
+  .sf-item:hover{border-color:var(--blue);background:var(--blue-wash);}
+  .sf-item:disabled{opacity:.6;cursor:default;}
+  .sf-empty{font-size:13px;color:var(--ink-soft);padding:6px 0;line-height:1.5;}
+  .progress-track{background:var(--wash);border-radius:20px;height:10px;overflow:hidden;margin-top:14px;}
+  .progress-fill{background:var(--blue);height:100%;width:0%;transition:width .15s;}
+  .modal-actions{display:flex;gap:8px;margin-top:18px;}
+  .modal-actions .btn{flex:1;padding:11px;}
+  #scanRegion{width:100%;min-height:230px;background:var(--ink);border-radius:6px;overflow:hidden;}
+  .scan-result{margin-top:14px;font-size:13.5px;}
+  .scan-fill-options{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px;}
+
+
+  /* ============ MOBILE ============ */
+  @media (max-width:860px){
+    header{padding:0 12px;min-height:56px;gap:10px;}
+    .ws-date{display:none;}
+    .ws-title b{font-size:14px;}
+    .ws-title span{font-size:11.5px;}
+    .ws-status{display:none;}
+    #btnUpload span,#btnSubmit span{display:none;}
+
+    .canvas-wrap{width:100%;}
+    .canvas-topbar{top:10px;gap:6px;width:calc(100% - 20px);justify-content:center;}
+    .mode-toggle button{padding:7px 12px;font-size:13px;}
+    .add-cam-btn{padding:9px 13px;}
+    #addCamLabel{display:none;}
+    .add-cam-btn .glyph{font-size:18px;}
+    .arm-banner{top:auto;bottom:calc(78px + var(--safe-b));}
+    .diagram-controls{top:58px;right:10px;min-width:0;padding:10px;}
+    .diagram-hint{bottom:calc(70px + var(--safe-b));font-size:11.5px;}
+    .pin-inspector{bottom:calc(70px + var(--safe-b));width:calc(100% - 20px);}
+
+    .sidebar{position:fixed;left:0;right:0;bottom:0;top:auto;width:100%;max-height:74vh;
+      border-right:none;border-top:1px solid var(--rule);border-radius:14px 14px 0 0;
+      transform:translateY(102%);transition:transform .24s cubic-bezier(.32,.72,0,1);
+      z-index:1450;box-shadow:0 -16px 44px -18px rgba(13,21,32,.4);
+      padding-bottom:calc(12px + var(--safe-b));}
+    .sidebar-tabs,.sidebar-expand-btn{display:none !important;}
+    .sidebar-groups{overflow-y:auto;}
+    .sidebar.open{transform:translateY(0);}
+    .sheet-grip{display:block;position:sticky;top:0;background:var(--card);padding:10px 0 6px;
+      z-index:3;border-radius:14px 14px 0 0;flex-shrink:0;cursor:pointer;}
+    .sheet-grip::before{content:"";display:block;width:38px;height:4px;border-radius:3px;
+      background:var(--rule);margin:0 auto;}
+    .sidebar-section{scroll-margin-top:26px;}
+
+    .tabbar{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:1300;background:var(--card);
+      border-top:1px solid var(--rule);padding-bottom:var(--safe-b);}
+    .tabbar button{flex:1;background:none;border:none;padding:9px 4px 10px;cursor:pointer;
+      display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--ink-soft);
+      font-family:var(--legend);font-size:11.5px;text-transform:uppercase;letter-spacing:.09em;
+      font-weight:600;}
+    .tabbar button .tb-glyph{font-size:17px;line-height:1;}
+    .tabbar button.active{color:var(--blue);}
+    main{padding-bottom:calc(56px + var(--safe-b));}
+    .toast{bottom:calc(76px + var(--safe-b));}
+    .fab{width:calc(100% - 40px);justify-content:center;}
+  }
+  @media (max-width:420px){
+    .pl-username{display:none;}
+    .route-apps{grid-template-columns:1fr;}
+  }
+</style>
+</head>
+<body>
+
+<!-- ============ PROJECT LIST ============ -->
+<div class="screen active" id="screenProjects">
+  <div class="pl-head">
+    <div class="pl-top">
+      <div class="pl-mark"><span>QC</span></div>
+      <div class="pl-titles">
+        <h1>Site Mapper</h1>
+        <p>Field camera placement · Build 17</p>
+      </div>
+      <div class="pl-user">
+        <div class="pl-username">
+          <b>Jagr Doehring</b>
+          <span>Jr. Operations Manager</span>
+        </div>
+        <div class="pl-avatar">JD</div>
+      </div>
+    </div>
+    <div class="sync-pill">
+      <span class="sync-dot" id="syncDot"></span>
+      <span id="syncLabel">Saved on this device only</span>
+    </div>
+  </div>
+
+  <div class="pl-body">
+    <div id="homeProjects">
+      <button class="ghost-btn full-width" id="plImportBtn" style="margin-bottom:8px;">⤓ Import project from cloud</button>
+      <button class="ghost-btn full-width" id="plOpenFileBtn" style="margin-bottom:16px;">⬆ Open project file</button>
+      <input type="file" id="openProjectFile" accept=".json" style="display:none;">
+      <div class="pl-section" id="draftsHead">Drafts</div>
+      <div id="draftList"></div>
+      <div class="pl-section" id="submittedHead">Submitted</div>
+      <div id="submittedList"></div>
+      <div class="pl-empty" id="plEmpty">
+        <div class="big">◇</div>
+        <p>No projects yet.<br>Create one and upload its KMZ to get started.</p>
+      </div>
+    </div>
+  </div>
+
+  <button class="fab" id="fabBtn"><span class="glyph">＋</span><span id="fabLabel">New project</span></button>
+</div>
+
+<!-- ============ WORKSPACE ============ -->
+<div class="screen" id="screenWorkspace">
+  <header>
+    <button class="back-btn" id="backBtn" title="Back to projects">←</button>
+    <div class="ws-title">
+      <b id="wsOrder">—</b>
+      <span id="wsName">—</span>
+    </div>
+    <button class="back-btn" id="wsEditBtn" title="Edit order # / name">✎</button>
+    <span class="ws-status draft" id="wsStatus">Draft</span>
+    <div class="ws-actions">
+      <div class="ws-date">
+        <label for="countDate">Count date</label>
+        <input id="countDate" type="date">
+      </div>
+      <label class="btn" for="kmzInput" id="btnUpload">⤒<span> KMZ / KML</span></label>
+      <input type="file" id="kmzInput" accept=".kmz,.kml">
+      <button class="btn" id="wsFromServer" title="Load KMZ/KML from cloud">⤓</button>
+      <button class="btn" id="btnPushProject" title="Push this project to the cloud">⇧</button>
+      <button class="btn primary" id="btnSubmit">↑<span> Submit</span></button>
+    </div>
+  </header>
+
+  <main>
+    <div class="sidebar" id="sidebar">
+      <div class="sheet-grip" id="sheetGrip"></div>
+
+      <div class="sidebar-tabs" id="sidebarTabs">
+        <button class="sidebar-tab-btn active" data-group="sites" title="Sites"><span class="stb-glyph">◎</span><span class="stb-label">Sites</span></button>
+        <button class="sidebar-tab-btn" data-group="cams" title="Cameras"><span class="stb-glyph">▣</span><span class="stb-label">Cameras</span></button>
+        <button class="sidebar-tab-btn" data-group="route" title="Route"><span class="stb-glyph">➤</span><span class="stb-label">Route</span></button>
+        <button class="sidebar-tab-btn" data-group="pins" title="Pins"><span class="stb-glyph">◈</span><span class="stb-label">Pins</span></button>
+        <button class="sidebar-collapse-btn" id="sidebarCollapseBtn" title="Collapse panel">«</button>
+      </div>
+
+      <div class="sidebar-groups">
+        <div class="sidebar-section" id="sec-sites" data-group="sites">
+          <h3>Locations</h3>
+          <div id="siteList"></div>
+          <button class="btn small full-width" id="addLocationBtn">+ Add location</button>
+        </div>
+
+        <div class="sidebar-section" id="sec-offline" data-group="sites">
+          <h3>Offline maps</h3>
+          <p class="help" style="margin-top:0;">Pulls satellite imagery within ~200 yards of every location in this project so the map still shows out in the field with no signal. Do this while on Wi-Fi, before you leave.</p>
+          <button class="btn small full-width" id="downloadOfflineBtn">⬇ Download offline maps (±200yd)</button>
+          <p class="help" id="offlineStats"></p>
+          <button class="btn small full-width" id="clearOfflineBtn">Clear cached maps on this device</button>
+        </div>
+
+        <div class="sidebar-section" id="sec-reports" data-group="sites">
+          <h3>Reports</h3>
+          <p class="help" style="margin-top:0;">Sites, site codes, camera numbers and a satellite snapshot of every location, ready to hand off.</p>
+          <button class="btn small full-width" id="exportPdfBtn">⬇ Export PDF</button>
+          <button class="btn small full-width" id="exportExcelBtn" style="margin-top:8px;">⬇ Export Excel</button>
+          <button class="btn small full-width" id="saveProjectFileBtn" style="margin-top:8px;">⬇ Save project file</button>
+          <p class="help" style="margin-top:8px;">A real file you keep — back it up, email it, or open it on another device with <b>Open project file</b>.</p>
+        </div>
+
+        <div class="sidebar-section" id="sec-cams" data-group="cams">
+          <h3>Cameras at this location</h3>
+          <div id="camRoster"></div>
+          <button class="btn small full-width" id="scanBtn">▣ Scan camera barcode</button>
+        </div>
+
+        <div class="sidebar-section" id="sec-route" data-group="route">
+          <h3>Route</h3>
+          <div id="routeList"></div>
+          <div class="route-apps">
+            <button class="btn small" id="routeGoogle">Google Maps</button>
+            <button class="btn small" id="routeWaze">Waze</button>
+            <button class="btn small" id="routeApple">Apple Maps</button>
+            <button class="btn small" id="routeCopy">Copy stops</button>
+          </div>
+          <div class="help">Google Maps opens the <b>full multi-stop route</b>. Waze and Apple Maps accept one destination per link, so they open your <b>next stop</b>.</div>
+        </div>
+
+        <div class="sidebar-section" id="sec-pins" data-group="pins">
+          <h3 id="pinsListTitle">Placed pins</h3>
+          <div id="pinsList"></div>
+          <button class="btn small full-width" id="copySummary">Copy summary</button>
+          <div class="help">Tap a pin to select it. <b>Drag</b> the pin to move it, <b>drag the knob</b> to aim it.</div>
+        </div>
+      </div>
+    </div>
+    <button class="sidebar-expand-btn" id="sidebarExpandBtn" title="Expand panel">»</button>
+
+    <div class="canvas-wrap">
+      <div class="canvas-topbar">
+        <div class="mode-toggle">
+          <button id="btnMap" class="active">Satellite</button>
+          <button id="btnDiagram">Diagram</button>
+        </div>
+        <button class="add-cam-btn" id="addCamBtn"><span class="glyph">＋</span><span id="addCamLabel">Add camera location</span></button>
+      </div>
+      <div class="arm-banner" id="armBanner">Tap where the camera goes — Esc to cancel</div>
+
+      <div id="map"></div>
+
+      <div class="diagram-view" id="diagramView">
+        <svg id="diagramSvg" width="100%" height="100%"></svg>
+        <div class="center-prompt" id="centerPrompt">
+          <div class="plus">＋</div>
+          <p>Tap to choose a roadway type</p>
+        </div>
+        <div class="diagram-controls" id="diagramControls">
+          <div class="row-label">Roadway</div>
+          <button class="btn small" id="changeTypeBtn">Change type</button>
+          <div class="draw-row" id="drawRow" style="display:none;">
+            <button class="btn small" id="drawToggle">✎ Draw</button>
+            <button class="btn small" id="undoStroke">Undo</button>
+          </div>
+          <div class="street-inputs">
+            <input type="text" id="streetNS" placeholder="N/S Street">
+            <input type="text" id="streetEW" placeholder="E/W Street">
+          </div>
+        </div>
+        <div class="diagram-hint" id="diagramHint">Tap the canvas to choose a roadway type</div>
+      </div>
+
+      <div class="pin-inspector" id="pinInspector">
+        <div class="pi-head">
+          <span id="piTitle">Camera</span>
+          <button id="piClose" title="Close">✕</button>
+        </div>
+        <div class="pi-field">
+          <label for="piNum">Camera number</label>
+          <input id="piNum" type="text" inputmode="numeric" maxlength="4">
+        </div>
+        <div class="pi-field">
+          <label for="piRot">Facing <span class="pi-heading" id="piHeading">N · 0°</span></label>
+          <input id="piRot" type="range" min="0" max="355" step="5">
+        </div>
+        <button class="pi-delete" id="piDelete">Delete this camera</button>
+      </div>
+    </div>
+  </main>
+
+  <nav class="tabbar" id="tabbar">
+    <button data-panel="sites"><span class="tb-glyph">◎</span>Sites</button>
+    <button data-panel="cams"><span class="tb-glyph">▣</span>Cameras</button>
+    <button data-panel="route"><span class="tb-glyph">➤</span>Route</button>
+    <button data-panel="pins"><span class="tb-glyph">◈</span>Pins</button>
+  </nav>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<div class="toast" id="toast"></div>
+
+<div class="modal-overlay" id="projectModal">
+  <div class="modal-card">
+    <div class="modal-head"><h3>New project</h3><button class="modal-close" id="pmClose">×</button></div>
+    <div class="m-field">
+      <label for="pmOrder">Order number</label>
+      <input id="pmOrder" type="text" inputmode="numeric" placeholder="177106">
+    </div>
+    <div class="m-field">
+      <label for="pmName">Project name</label>
+      <input id="pmName" type="text" placeholder="Forney TMCs">
+    </div>
+    <div class="m-field">
+      <label>Locations</label>
+      <div class="kmz-drop" id="pmDrop">
+        <div class="kd-title" id="pmDropTitle">Upload KMZ or KML</div>
+        <div class="kd-sub" id="pmDropSub">Each placemark becomes a location. Optional — you can add locations by hand later.</div>
+      </div>
+      <input type="file" id="pmFile" accept=".kmz,.kml">
+      <button class="btn small full-width" id="pmFromServer" style="margin-top:8px;">⤓ Load from cloud</button>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" id="pmCancel">Cancel</button>
+      <button class="btn primary" id="pmCreate">Create draft</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="scanModal">
+  <div class="modal-card">
+    <div class="modal-head"><h3>Scan barcode</h3><button class="modal-close" id="scanClose">×</button></div>
+    <div id="scanRegion"></div>
+    <div class="scan-result" id="scanResultWrap" style="display:none;">
+      <p>Scanned: <span id="scanResult" style="color:var(--blue-deep);font-weight:700;"></span></p>
+      <div id="scanFillOptions" class="scan-fill-options"></div>
+    </div>
+    <p class="m-hint">Needs camera permission, and a localhost or HTTPS address — browsers block the camera on file:// pages.</p>
+  </div>
+</div>
+
+<div class="modal-overlay" id="locationModal">
+  <div class="modal-card">
+    <div class="modal-head"><h3 id="lmTitle">Add location</h3><button class="modal-close" id="lmClose">×</button></div>
+    <div class="m-field">
+      <label for="lmName">Name</label>
+      <input id="lmName" type="text" placeholder="Street names">
+    </div>
+    <div class="m-field">
+      <label for="lmCode">Site code <span style="text-transform:none;font-weight:400;">(optional)</span></label>
+      <input id="lmCode" type="text" placeholder="e.g. TMC-014">
+    </div>
+    <p class="m-hint" id="lmHint">Drops at the center of the current map view — drag its pin afterward to fine-tune.</p>
+    <div class="modal-actions">
+      <button class="btn" id="lmCancel">Cancel</button>
+      <button class="btn primary" id="lmSave">Add location</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="projectDetailsModal">
+  <div class="modal-card">
+    <div class="modal-head"><h3>Edit project</h3><button class="modal-close" id="pdClose">×</button></div>
+    <div class="m-field">
+      <label for="pdOrder">Order number</label>
+      <input id="pdOrder" type="text" inputmode="numeric" placeholder="177106">
+    </div>
+    <div class="m-field">
+      <label for="pdName">Project name</label>
+      <input id="pdName" type="text" placeholder="Forney TMCs">
+    </div>
+    <div class="modal-actions">
+      <button class="btn" id="pdCancel">Cancel</button>
+      <button class="btn primary" id="pdSave">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="serverFileModal">
+  <div class="modal-card">
+    <div class="modal-head"><h3>Load from cloud</h3><button class="modal-close" id="sfClose">×</button></div>
+    <p class="m-hint">KMZ/KML files uploaded from the office page show up here. Go to <code>/office</code> on any computer to upload.</p>
+    <div id="sfList"></div>
+    <div class="modal-actions">
+      <button class="btn" id="sfCancel">Cancel</button>
+      <button class="btn" id="sfRefresh">↻ Refresh</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="offlineModal">
+  <div class="modal-card">
+    <div class="modal-head"><h3>Downloading offline maps</h3></div>
+    <p class="m-hint">Fetching satellite tiles within ~200 yards of each location. Keep this tab open and stay on Wi-Fi until it finishes.</p>
+    <div class="progress-track"><div class="progress-fill" id="offlineProgressFill"></div></div>
+    <p class="m-hint" id="offlineProgressText">0 / 0 tiles</p>
+    <div class="modal-actions">
+      <button class="btn" id="offlineStopBtn">Stop</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+'use strict';
+
+/* Registers only over a secure context (HTTPS, or localhost/127.0.0.1) — silently
+   no-ops elsewhere (e.g. a plain LAN IP), which is exactly what we want. */
+if('serviceWorker' in navigator){
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  });
+}
+
+/* =============================================================================
+   SYNC ADAPTER — the only section that changes to go multi-device
+
+   Right now every project lives in this browser only. Two people on two devices
+   each keep their own copy and nothing travels between them.
+
+   To turn on shared, live-updating projects: fill in the two values below and
+   implement the three functions. Supabase is the shortest path — create a table
+   `projects` with columns id (text, primary key), payload (jsonb),
+   status (text), updated_at (timestamptz), then enable Realtime on it.
+
+       SYNC.url = 'https://YOUR-PROJECT.supabase.co';
+       SYNC.key = 'YOUR-ANON-PUBLIC-KEY';
+
+   Nothing else needs to change: every save already routes through SYNC.push(),
+   and SYNC.subscribe() is already wired to refresh the project list.
+============================================================================= */
+const SYNC = {
+  url: null,
+  key: null,
+  enabled(){ return Boolean(this.url && this.key); },
+  async pull(){ return null; },
+  async push(project){ return false; },
+  subscribe(onChange){ /* realtime listener calls onChange(projects) */ }
+};
+
+const CLOUD = {
+  pass: null,
+  baseUrl: location.origin + '/api',
+  headers(extra){ return { 'X-Pass': this.pass || '', ...extra }; },
+  async authed(){
+    if(this.pass) return true;
+    const saved = localStorage.getItem('qc-cloud-pass');
+    if(saved){ this.pass = saved; return true; }
+    const p = prompt('Enter the cloud passphrase:');
+    if(!p) return false;
+    this.pass = p;
+    try{
+      const res = await fetch(this.baseUrl + '/kmz', { headers: this.headers() });
+      if(res.status === 401){ this.pass = null; showToast('Wrong passphrase'); return false; }
+      localStorage.setItem('qc-cloud-pass', p);
+      return true;
+    }catch(e){ this.pass = null; showToast('Could not reach cloud — ' + e.message); return false; }
+  }
+};
+
+/* ---------------- storage ---------------- */
+const STORAGE_KEY = 'qc-site-mapper:projects:v1';
+let memoryFallback = null;
+const store = {
+  read(){
+    try{
+      const raw = window.localStorage.getItem(STORAGE_KEY);
+      return raw ? JSON.parse(raw) : [];
+    }catch(e){ return memoryFallback || []; }
+  },
+  write(data){
+    memoryFallback = data;
+    try{ window.localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }catch(e){}
+  }
+};
+
+/* ---------------- helpers ---------------- */
+function escapeHtml(str){
+  return String(str).replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
+}
+function compassLabel(deg){ const d=['N','NE','E','SE','S','SW','W','NW']; return d[Math.round(((deg%360)/45))%8]; }
+function nextCamNum(arr){
+  const used = new Set(arr.map(r => parseInt(r.num,10)).filter(n => !Number.isNaN(n)));
+  let n = 1; while(used.has(n)) n++; return n;
+}
+function uid(){ return 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+function extractOrderNumber(...sources){
+  for(const s of sources){
+    if(!s) continue;
+    const m = String(s).match(/(?<!\d)\d{6}(?!\d)/);
+    if(m) return m[0];
+  }
+  return '';
+}
+function relTime(ts){
+  if(!ts) return '—';
+  const mins = Math.floor((Date.now() - ts)/60000);
+  if(mins < 1) return 'just now';
+  if(mins < 60) return mins + 'm ago';
+  const hrs = Math.floor(mins/60);
+  if(hrs < 24) return hrs + 'h ago';
+  const days = Math.floor(hrs/24);
+  return days === 1 ? 'yesterday' : days + 'd ago';
+}
+let toastTimer;
+function showToast(msg){
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2600);
+}
+function copyText(text, okMsg){
+  if(navigator.clipboard && window.isSecureContext !== false){
+    navigator.clipboard.writeText(text).then(() => showToast(okMsg)).catch(() => legacyCopy(text, okMsg));
+  } else legacyCopy(text, okMsg);
+}
+function legacyCopy(text, okMsg){
+  const ta = document.createElement('textarea');
+  ta.value = text; ta.style.position='fixed'; ta.style.opacity='0';
+  document.body.appendChild(ta); ta.select();
+  try{ document.execCommand('copy'); showToast(okMsg); }
+  catch(e){ showToast('Copy failed — select the text and copy manually'); }
+  ta.remove();
+}
+
+/* ---------------- model ---------------- */
+const OVERVIEW = 'overview';
+let projects = store.read();
+let project = null;
+let sites = [];
+let route = [];
+let activeSiteId = OVERVIEW;
+let siteCounter = 0;
+
+function newSite(name, lat, lng){
+  siteCounter++;
+  return { id: siteCounter, name, lat, lng, siteCode:'',
+    camSlots:[{n:1,val:''},{n:2,val:''}],
+    mapCams:[], diagramTemplate:null, diagramCams:[], customStrokes:[],
+    streetNS:'', streetEW:'' };
+}
+function saveProject(){
+  if(!project) return;
+  project.sites = sites;
+  project.route = route;
+  project.countDate = document.getElementById('countDate').value;
+  project.updatedAt = Date.now();
+  const i = projects.findIndex(p => p.id === project.id);
+  if(i >= 0) projects[i] = project; else projects.push(project);
+  store.write(projects);
+  if(SYNC.enabled()) SYNC.push(project);
+  cloudSaveProject(project);
+}
+let _cloudSaveTimer = null;
+function cloudSaveProject(proj){
+  clearTimeout(_cloudSaveTimer);
+  _cloudSaveTimer = setTimeout(async () => {
+    if(!(await CLOUD.authed())) return;
+    try{
+      await fetch(CLOUD.baseUrl + '/projects', {
+        method: 'POST', headers: CLOUD.headers({'Content-Type':'application/json'}),
+        body: JSON.stringify(proj)
+      });
+    }catch(e){}
+  }, 1500);
+}
+
+/* ---------------- push/pull projects through the cloud ---------------- */
+async function pushProjectToServer(){
+  if(!project) return;
+  saveProject();
+  if(!(await CLOUD.authed())) return;
+  try{
+    const res = await fetch(CLOUD.baseUrl + '/projects', {
+      method: 'POST', headers: CLOUD.headers({'Content-Type':'application/json'}), body: JSON.stringify(project)
+    });
+    const data = await res.json().catch(() => null);
+    if(!res.ok || !data || !data.ok) throw new Error((data && data.error) || `server returned ${res.status}`);
+    showToast(`Pushed "${project.orderNumber || project.name || 'project'}" to the cloud`);
+  }catch(err){
+    showToast('Could not push — ' + err.message);
+  }
+}
+function importProjectData(data, source){
+  source = source || 'from computer';
+  if(!data || !data.id || !Array.isArray(data.sites)){
+    showToast('That file does not look like a valid project export');
+    return;
+  }
+  const idx = projects.findIndex(p => p.id === data.id);
+  const label = data.orderNumber || data.name || data.id;
+  if(idx >= 0){ projects[idx] = data; showToast(`Updated "${label}" ${source}`); }
+  else { projects.push(data); showToast(`Imported "${label}" ${source}`); }
+  store.write(projects);
+  renderProjects();
+}
+function exportProjectFile(){
+  if(!project) return;
+  saveProject();
+  const blob = new Blob([JSON.stringify(project, null, 2)], {type: 'application/json'});
+  const url = URL.createObjectURL(blob);
+  const safe = `${project.orderNumber || 'project'} ${project.name || ''}`.trim().replace(/[\\/:*?"<>|]+/g, '_') || 'project';
+  const a = document.createElement('a');
+  a.href = url; a.download = `${safe}.qcproject.json`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  showToast('Project file downloaded');
+}
+
+/* =========================== PROJECT LIST =========================== */
+function renderProjects(){
+  const drafts = projects.filter(p => p.status === 'draft').sort((a,b) => b.updatedAt - a.updatedAt);
+  const done   = projects.filter(p => p.status === 'submitted').sort((a,b) => b.updatedAt - a.updatedAt);
+  const card = p => `
+    <div class="proj-row">
+      <button class="proj-card" data-id="${p.id}">
+        <div class="proj-order"><b>${escapeHtml(p.orderNumber || 'No order #')}</b>
+          <span class="chip ${p.status}">${p.status === 'draft' ? 'Draft' : 'Submitted'}</span></div>
+        <div class="proj-name">${escapeHtml(p.name || 'Untitled project')}</div>
+        <div class="proj-meta">
+          <span>${p.sites.length} location${p.sites.length===1?'':'s'}</span>
+          <span>${p.sites.reduce((n,s) => n + s.mapCams.length + s.diagramCams.length, 0)} pins</span>
+          <span>${relTime(p.updatedAt)}</span>
+        </div>
+      </button>
+      <button class="proj-del" data-del="${p.id}" title="Delete project">✕</button>
+    </div>`;
+  document.getElementById('draftList').innerHTML = drafts.map(card).join('');
+  document.getElementById('submittedList').innerHTML = done.map(card).join('');
+  document.getElementById('draftsHead').style.display = drafts.length ? '' : 'none';
+  document.getElementById('submittedHead').style.display = done.length ? '' : 'none';
+  document.getElementById('plEmpty').style.display = projects.length ? 'none' : '';
+  document.querySelectorAll('.proj-card').forEach(btn =>
+    btn.addEventListener('click', () => openProject(btn.dataset.id)));
+  document.querySelectorAll('.proj-del').forEach(btn =>
+    btn.addEventListener('click', (ev) => { ev.stopPropagation(); deleteProject(btn.dataset.del); }));
+
+  const dot = document.getElementById('syncDot');
+  const label = document.getElementById('syncLabel');
+  if(SYNC.enabled()){ dot.classList.add('live'); label.textContent = 'Live — shared with your team'; }
+  else { dot.classList.remove('live'); label.textContent = 'Saved on this device only'; }
+}
+function deleteProject(id){
+  const p = projects.find(pr => pr.id === id);
+  if(!p) return;
+  const pinCount = p.sites.reduce((n,s) => n + s.mapCams.length + s.diagramCams.length, 0);
+  projects = projects.filter(pr => pr.id !== id);
+  store.write(projects);
+  renderProjects();
+  const label = p.orderNumber || p.name || 'Project';
+  showToast(pinCount ? `"${label}" deleted with ${p.sites.length} location${p.sites.length===1?'':'s'} and ${pinCount} pin${pinCount===1?'':'s'}` : `"${label}" deleted`);
+}
+function showScreen(which){
+  document.getElementById('screenProjects').classList.toggle('active', which === 'projects');
+  document.getElementById('screenWorkspace').classList.toggle('active', which === 'workspace');
+  if(which === 'workspace') setTimeout(() => map.invalidateSize(), 60);
+}
+
+/* new project modal */
+let pendingKmz = null;
+const projectModal = document.getElementById('projectModal');
+function openNewProjectModal(){
+  pendingKmz = null;
+  document.getElementById('pmOrder').value = '';
+  document.getElementById('pmName').value = '';
+  document.getElementById('pmDrop').classList.remove('loaded');
+  document.getElementById('pmDropTitle').textContent = 'Upload KMZ or KML';
+  document.getElementById('pmDropSub').textContent = 'Each placemark becomes a location. Optional — you can add locations by hand later.';
+  projectModal.classList.add('show');
+}
+const closePm = () => projectModal.classList.remove('show');
+document.getElementById('pmClose').addEventListener('click', closePm);
+document.getElementById('pmCancel').addEventListener('click', closePm);
+document.getElementById('pmDrop').addEventListener('click', () => document.getElementById('pmFile').click());
+async function handlePmGeoFile(file){
+  try{
+    const parsed = await parseGeoFile(file);
+    pendingKmz = parsed.points;
+    document.getElementById('pmDrop').classList.add('loaded');
+    document.getElementById('pmDropTitle').textContent = `${parsed.title} · ${parsed.points.length} location${parsed.points.length===1?'':'s'}`;
+    document.getElementById('pmDropSub').textContent = 'Ready to import.';
+    if(!document.getElementById('pmName').value) document.getElementById('pmName').value = parsed.title;
+    const pmOrderEl = document.getElementById('pmOrder');
+    if(!pmOrderEl.value){
+      const order = extractOrderNumber(file.name, parsed.title);
+      if(order) pmOrderEl.value = order;
+    }
+  }catch(err){
+    pendingKmz = null;
+    showToast('Could not read that file — ' + err.message);
+  }
+}
+document.getElementById('pmFile').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if(!file) return;
+  await handlePmGeoFile(file);
+  e.target.value = '';
+});
+document.getElementById('pmFromServer').addEventListener('click', () => openServerFilePicker('kmz', /\.(kmz|kml)$/i, async (name) => {
+  handlePmGeoFile(await fetchServerFileAsFile('kmz', name));
+}));
+(() => {
+  const zone = document.getElementById('pmDrop');
+  ['dragover','dragenter'].forEach(evt => zone.addEventListener(evt, (e) => {
+    e.preventDefault(); e.stopPropagation();
+    zone.classList.add('dragover');
+  }));
+  ['dragleave','dragend'].forEach(evt => zone.addEventListener(evt, () => zone.classList.remove('dragover')));
+  zone.addEventListener('drop', async (e) => {
+    e.preventDefault(); e.stopPropagation();
+    zone.classList.remove('dragover');
+    const file = e.dataTransfer.files && e.dataTransfer.files[0];
+    if(file) await handlePmGeoFile(file);
+  });
+})();
+document.getElementById('pmCreate').addEventListener('click', () => {
+  const order = document.getElementById('pmOrder').value.trim();
+  const name = document.getElementById('pmName').value.trim();
+  if(!order && !name){ showToast('Add an order number or a project name'); return; }
+  siteCounter = 0;
+  const p = { id: uid(), orderNumber: order, name, status:'draft',
+    createdAt: Date.now(), updatedAt: Date.now(), countDate:'', sites:[], route:[] };
+  if(pendingKmz){
+    p.sites = pendingKmz.map((pt,i) => newSite(pt.name || `Site ${i+1}`, pt.lat, pt.lng));
+    p.route = p.sites.map(s => s.id);
+  }
+  projects.push(p);
+  store.write(projects);
+  closePm();
+  openProject(p.id);
+});
+
+/* =========================== WORKSPACE =========================== */
+function openProject(id){
+  project = projects.find(p => p.id === id);
+  if(!project) return;
+  sites = project.sites || [];
+  route = project.route || [];
+  siteCounter = sites.reduce((m,s) => Math.max(m, s.id), 0);
+  document.getElementById('wsOrder').textContent = project.orderNumber || 'No order #';
+  document.getElementById('wsName').textContent = project.name || 'Untitled project';
+  document.getElementById('countDate').value = project.countDate || '';
+  updateStatusChip();
+  removeAllSiteMarkers();
+  clearMapMarkersFromMap();
+  clearDiagramMarkersFromDom();
+  sites.forEach(s => addSiteMarker(s));
+  showScreen('workspace');
+  selectSite(OVERVIEW);
+  renderRouteList();
+  refreshOfflineStats();
+  setSidebarTab('sites');
+}
+function updateStatusChip(){
+  const el = document.getElementById('wsStatus');
+  el.className = 'ws-status ' + project.status;
+  el.textContent = project.status === 'draft' ? 'Draft' : 'Submitted';
+  document.getElementById('btnSubmit').innerHTML =
+    project.status === 'draft' ? '↑<span> Submit</span>' : '✓<span> Submitted</span>';
+}
+const projectDetailsModal = document.getElementById('projectDetailsModal');
+document.getElementById('wsEditBtn').addEventListener('click', () => {
+  if(!project) return;
+  document.getElementById('pdOrder').value = project.orderNumber || '';
+  document.getElementById('pdName').value = project.name || '';
+  projectDetailsModal.classList.add('show');
+});
+const closePd = () => projectDetailsModal.classList.remove('show');
+document.getElementById('pdClose').addEventListener('click', closePd);
+document.getElementById('pdCancel').addEventListener('click', closePd);
+document.getElementById('pdSave').addEventListener('click', () => {
+  if(!project) return;
+  const order = document.getElementById('pdOrder').value.trim();
+  const name = document.getElementById('pdName').value.trim();
+  if(!order && !name){ showToast('Add an order number or a project name'); return; }
+  project.orderNumber = order;
+  project.name = name;
+  document.getElementById('wsOrder').textContent = order || 'No order #';
+  document.getElementById('wsName').textContent = name || 'Untitled project';
+  saveProject();
+  closePd();
+  showToast('Project details updated');
+});
+document.getElementById('backBtn').addEventListener('click', () => {
+  saveProject(); closeSheet(); renderProjects(); showScreen('projects');
+});
+document.getElementById('countDate').addEventListener('change', saveProject);
+document.getElementById('btnSubmit').addEventListener('click', () => {
+  if(!project) return;
+  if(project.status === 'draft'){
+    project.status = 'submitted'; saveProject(); updateStatusChip();
+    showToast(SYNC.enabled() ? 'Submitted and shared with your team'
+                             : 'Submitted — it will share once sync is connected');
+  } else {
+    project.status = 'draft'; saveProject(); updateStatusChip();
+    showToast('Moved back to draft');
+  }
+});
+
+/* ---------------- sidebar tabs (desktop) + mobile sheet ---------------- */
+const sidebar = document.getElementById('sidebar');
+const scrim = document.getElementById('scrim');
+function setSidebarTab(group){
+  document.querySelectorAll('.sidebar-section').forEach(s =>
+    s.classList.toggle('group-hidden', s.dataset.group !== group));
+  document.querySelectorAll('.sidebar-tab-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.group === group));
+  document.querySelectorAll('.tabbar button').forEach(b =>
+    b.classList.toggle('active', b.dataset.panel === group));
+}
+document.querySelectorAll('.sidebar-tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => setSidebarTab(btn.dataset.group));
+});
+setSidebarTab('sites');
+
+function setSidebarCollapsed(v){
+  sidebar.classList.toggle('collapsed', v);
+  document.getElementById('sidebarExpandBtn').classList.toggle('show', v);
+}
+document.getElementById('sidebarCollapseBtn').addEventListener('click', () => setSidebarCollapsed(true));
+document.getElementById('sidebarExpandBtn').addEventListener('click', () => setSidebarCollapsed(false));
+
+let openPanel = null;
+function openSheet(panel){
+  openPanel = panel;
+  sidebar.classList.add('open');
+  scrim.classList.add('show');
+  setSidebarTab(panel);
+}
+function closeSheet(){
+  openPanel = null;
+  sidebar.classList.remove('open');
+  scrim.classList.remove('show');
+  document.querySelectorAll('.tabbar button').forEach(b => b.classList.remove('active'));
+}
+document.querySelectorAll('.tabbar button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if(openPanel === btn.dataset.panel) closeSheet(); else openSheet(btn.dataset.panel);
+  });
+});
+scrim.addEventListener('click', closeSheet);
+document.getElementById('sheetGrip').addEventListener('click', closeSheet);
+function isMobile(){ return window.matchMedia('(max-width:860px)').matches; }
+
+/* =========================== OFFLINE TILE CACHE =========================== */
+/* IndexedDB (not restricted to secure contexts, unlike Cache API / Service Worker)
+   so this works fine over plain http:// on a local Wi-Fi network. */
+const TILE_DB_NAME = 'qc-tile-cache';
+const TILE_STORE = 'tiles';
+function openTileDB(){
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(TILE_DB_NAME, 1);
+    req.onupgradeneeded = () => { req.result.createObjectStore(TILE_STORE); };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+async function tileDbGet(key){
+  const db = await openTileDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(TILE_STORE, 'readonly');
+    const req = tx.objectStore(TILE_STORE).get(key);
+    req.onsuccess = () => resolve(req.result || null);
+    req.onerror = () => reject(req.error);
+  });
+}
+async function tileDbSet(key, blob){
+  const db = await openTileDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(TILE_STORE, 'readwrite');
+    tx.objectStore(TILE_STORE).put(blob, key);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+async function tileDbStats(){
+  const db = await openTileDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(TILE_STORE, 'readonly');
+    let count = 0, bytes = 0;
+    const req = tx.objectStore(TILE_STORE).openCursor();
+    req.onsuccess = (e) => {
+      const cursor = e.target.result;
+      if(cursor){ count++; bytes += (cursor.value && cursor.value.size) || 0; cursor.continue(); }
+      else resolve({count, bytes});
+    };
+    req.onerror = () => reject(req.error);
+  });
+}
+async function tileDbClear(){
+  const db = await openTileDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(TILE_STORE, 'readwrite');
+    tx.objectStore(TILE_STORE).clear();
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+const OfflineTileLayer = L.TileLayer.extend({
+  createTile: function(coords, done){
+    const tile = document.createElement('img');
+    tile.alt = '';
+    const key = `${coords.z}/${coords.x}/${coords.y}`;
+    const url = this.getTileUrl(coords);
+    (async () => {
+      try{
+        let blob = await tileDbGet(key).catch(() => null);
+        if(!blob){
+          const res = await fetch(url);
+          if(!res.ok) throw new Error('tile ' + res.status);
+          blob = await res.blob();
+          tileDbSet(key, blob).catch(() => {});
+        }
+        tile.onload = () => done(null, tile);
+        tile.onerror = (e) => done(e, tile);
+        tile.src = URL.createObjectURL(blob);
+      }catch(err){
+        // fall back to a plain network-loaded tile if fetch/cache path failed
+        tile.onload = () => done(null, tile);
+        tile.onerror = (e) => done(e, tile);
+        tile.src = url;
+      }
+    })();
+    return tile;
+  }
+});
+
+/* ---------------- tile math: convert a site + radius into z/x/y tiles ---------------- */
+const OFFLINE_RADIUS_M = 182.88; // 200 yards
+const OFFLINE_MIN_ZOOM = 16;
+const OFFLINE_MAX_ZOOM = 19;
+function lon2tileX(lon, z){ return Math.floor((lon + 180) / 360 * Math.pow(2, z)); }
+function lat2tileY(lat, z){
+  const rad = lat * Math.PI / 180;
+  return Math.floor((1 - Math.log(Math.tan(rad) + 1 / Math.cos(rad)) / Math.PI) / 2 * Math.pow(2, z));
+}
+function metersToDegLat(m){ return m / 111320; }
+function metersToDegLng(m, lat){ return m / (111320 * Math.cos(lat * Math.PI / 180)); }
+function tilesForSite(lat, lng, radiusM, zMin, zMax){
+  const dLat = metersToDegLat(radiusM), dLng = metersToDegLng(radiusM, lat);
+  const tiles = [];
+  for(let z = zMin; z <= zMax; z++){
+    const xMin = lon2tileX(lng - dLng, z), xMax = lon2tileX(lng + dLng, z);
+    const yMin = lat2tileY(lat + dLat, z), yMax = lat2tileY(lat - dLat, z);
+    for(let x = Math.min(xMin,xMax); x <= Math.max(xMin,xMax); x++){
+      for(let y = Math.min(yMin,yMax); y <= Math.max(yMin,yMax); y++){
+        tiles.push({z, x, y});
+      }
+    }
+  }
+  return tiles;
+}
+async function prefetchTile(z, x, y){
+  const key = `${z}/${x}/${y}`;
+  if(await tileDbGet(key)) return 'cached';
+  const url = `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${z}/${y}/${x}`;
+  const res = await fetch(url);
+  if(!res.ok) throw new Error('tile fetch failed ' + res.status);
+  await tileDbSet(key, await res.blob());
+  return 'downloaded';
+}
+let offlineDownloadAbort = false;
+async function downloadOfflineMapsForProject(){
+  if(!sites.length){ showToast('No locations to download maps for'); return; }
+  const allTiles = new Map();
+  sites.forEach(s => {
+    tilesForSite(s.lat, s.lng, OFFLINE_RADIUS_M, OFFLINE_MIN_ZOOM, OFFLINE_MAX_ZOOM)
+      .forEach(t => allTiles.set(`${t.z}/${t.x}/${t.y}`, t));
+  });
+  const list = [...allTiles.values()];
+  offlineDownloadAbort = false;
+  openOfflineProgressModal(list.length);
+  let done = 0, failed = 0, idx = 0;
+  async function worker(){
+    while(idx < list.length){
+      if(offlineDownloadAbort) return;
+      const t = list[idx++];
+      try{ await prefetchTile(t.z, t.x, t.y); }catch(e){ failed++; }
+      done++;
+      updateOfflineProgress(done, list.length);
+    }
+  }
+  await Promise.all(Array.from({length: 6}, worker));
+  closeOfflineProgressModal();
+  showToast(offlineDownloadAbort
+    ? `Stopped — ${done}/${list.length} tiles cached`
+    : `Offline maps ready for ${sites.length} location${sites.length===1?'':'s'} — ${done - failed} tiles cached${failed ? `, ${failed} failed` : ''}`);
+  refreshOfflineStats();
+}
+function openOfflineProgressModal(total){
+  document.getElementById('offlineProgressText').textContent = `0 / ${total} tiles`;
+  document.getElementById('offlineProgressFill').style.width = '0%';
+  document.getElementById('offlineModal').classList.add('show');
+}
+function updateOfflineProgress(done, total){
+  document.getElementById('offlineProgressText').textContent = `${done} / ${total} tiles`;
+  document.getElementById('offlineProgressFill').style.width = (total ? (done/total*100) : 0) + '%';
+}
+function closeOfflineProgressModal(){ document.getElementById('offlineModal').classList.remove('show'); }
+async function refreshOfflineStats(){
+  const el = document.getElementById('offlineStats');
+  if(!el) return;
+  try{
+    const {count, bytes} = await tileDbStats();
+    el.textContent = count
+      ? `${count} tile${count===1?'':'s'} cached (~${(bytes/1024/1024).toFixed(1)} MB) on this device`
+      : 'No offline tiles cached on this device yet.';
+  }catch(e){ el.textContent = ''; }
+}
+
+/* =========================== REPORT EXPORT (PDF / Excel) =========================== */
+function reportFilename(ext){
+  const order = (project.orderNumber || 'No order number').trim();
+  const name = (project.name || 'Untitled project').trim();
+  const safe = `${order} ${name}`.trim().replace(/[\\/:*?"<>|]+/g, '_').replace(/\s+/g,' ');
+  return `${safe}.${ext}`;
+}
+function buildReportRows(){
+  const rows = [];
+  sites.forEach(site => {
+    const satCams = site.mapCams.map(c => ({
+      num: c.num, mode: 'Satellite', lat: c.lat, lng: c.lng, orientation: c.orientation || 0
+    }));
+    const diaCams = site.diagramCams.map(c => ({
+      num: c.num, mode: `Diagram (${site.diagramTemplate || 'n/a'})`, lat: null, lng: null, orientation: c.orientation || 0
+    }));
+    const cams = [...satCams, ...diaCams];
+    if(!cams.length){
+      rows.push({site: site.name, code: site.siteCode || '', num:'', mode:'', facing:'', coords: `${site.lat.toFixed(6)}, ${site.lng.toFixed(6)}`});
+    } else {
+      cams.forEach(c => rows.push({
+        site: site.name, code: site.siteCode || '', num: c.num, mode: c.mode,
+        facing: `${compassLabel(c.orientation)} · ${c.orientation}°`,
+        coords: c.lat != null ? `${c.lat.toFixed(6)}, ${c.lng.toFixed(6)}` : `${site.lat.toFixed(6)}, ${site.lng.toFixed(6)} (site)`
+      }));
+    }
+  });
+  return rows;
+}
+
+/* ---- satellite snapshot rendering (reuses the offline tile cache) ---- */
+function latLngToPixel(lat, lng, zoom){
+  const scale = 256 * Math.pow(2, zoom);
+  const x = (lng + 180) / 360 * scale;
+  const sinLat = Math.sin(lat * Math.PI / 180);
+  const y = (0.5 - Math.log((1 + sinLat) / (1 - sinLat)) / (4 * Math.PI)) * scale;
+  return {x, y};
+}
+function blobToImage(blob){
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = URL.createObjectURL(blob);
+  });
+}
+function drawCamMarker(ctx, x, y, num, deg){
+  ctx.save();
+  ctx.translate(x, y);
+  // coverage cone, rotated with the camera
+  ctx.save();
+  ctx.rotate(deg * Math.PI / 180);
+  ctx.beginPath();
+  ctx.moveTo(0,0); ctx.lineTo(-17,-26); ctx.lineTo(17,-26); ctx.closePath();
+  ctx.fillStyle = 'rgba(216,237,74,.28)';
+  ctx.strokeStyle = 'rgba(197,222,32,.7)';
+  ctx.lineWidth = 1;
+  ctx.fill(); ctx.stroke();
+  ctx.restore();
+  // small direction nub
+  ctx.save();
+  ctx.rotate(deg * Math.PI / 180);
+  ctx.beginPath();
+  ctx.moveTo(0,-13); ctx.lineTo(-4,-8); ctx.lineTo(4,-8); ctx.closePath();
+  ctx.fillStyle = '#0D1520';
+  ctx.fill();
+  ctx.restore();
+  // circular badge
+  ctx.beginPath();
+  ctx.arc(0, 0, 10, 0, Math.PI*2);
+  const grad = ctx.createRadialGradient(-3,-3,1, 0,0,11);
+  grad.addColorStop(0, '#F1FAAA');
+  grad.addColorStop(1, '#D8ED4A');
+  ctx.fillStyle = grad;
+  ctx.fill();
+  ctx.lineWidth = 1.75;
+  ctx.strokeStyle = '#0D1520';
+  ctx.stroke();
+  ctx.fillStyle = '#0D1520';
+  ctx.font = 'bold 11px monospace';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(String(num), 0, 1);
+  ctx.restore();
+}
+function drawSiteMarker(ctx, x, y){
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(x, y, 8, 0, Math.PI*2);
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fill();
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = '#0E8F57';
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(x, y, 3, 0, Math.PI*2);
+  ctx.fillStyle = '#0E8F57';
+  ctx.fill();
+  ctx.restore();
+}
+async function renderSiteMapImage(site, outSize, zoom){
+  outSize = outSize || 480;
+  zoom = zoom || 18;
+  const canvas = document.createElement('canvas');
+  canvas.width = outSize; canvas.height = outSize;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#E4EAF1';
+  ctx.fillRect(0, 0, outSize, outSize);
+  const center = latLngToPixel(site.lat, site.lng, zoom);
+  const originX = center.x - outSize/2, originY = center.y - outSize/2;
+  const tileMinX = Math.floor(originX/256), tileMaxX = Math.floor((originX+outSize)/256);
+  const tileMinY = Math.floor(originY/256), tileMaxY = Math.floor((originY+outSize)/256);
+  for(let tx = tileMinX; tx <= tileMaxX; tx++){
+    for(let ty = tileMinY; ty <= tileMaxY; ty++){
+      const key = `${zoom}/${tx}/${ty}`;
+      let blob = await tileDbGet(key).catch(() => null);
+      if(!blob){
+        try{
+          const url = `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${zoom}/${ty}/${tx}`;
+          const res = await fetch(url);
+          if(res.ok){ blob = await res.blob(); tileDbSet(key, blob).catch(() => {}); }
+        }catch(e){ /* offline and not cached — leave this tile blank */ }
+      }
+      if(blob){
+        try{
+          const img = await blobToImage(blob);
+          ctx.drawImage(img, tx*256 - originX, ty*256 - originY, 256, 256);
+        }catch(e){}
+      }
+    }
+  }
+  if(site.mapCams.length){
+    site.mapCams.forEach(c => {
+      const p = latLngToPixel(c.lat, c.lng, zoom);
+      drawCamMarker(ctx, p.x - originX, p.y - originY, c.num, c.orientation || 0);
+    });
+  } else {
+    drawSiteMarker(ctx, outSize/2, outSize/2);
+  }
+  return canvas.toDataURL('image/jpeg', 0.86);
+}
+
+async function exportProjectExcel(){
+  if(!project) return;
+  if(typeof XLSX === 'undefined'){ showToast('Excel library did not load — check your connection'); return; }
+  const rows = buildReportRows();
+  const data = rows.map(r => ({
+    'Site': r.site, 'Site Code': r.code, 'Camera #': r.num, 'Mode': r.mode,
+    'Facing': r.facing, 'Coordinates': r.coords
+  }));
+  const ws = XLSX.utils.json_to_sheet(data);
+  ws['!cols'] = [{wch:22},{wch:14},{wch:10},{wch:20},{wch:14},{wch:28}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Cameras');
+  XLSX.writeFile(wb, reportFilename('xlsx'));
+  showToast('Excel report downloaded');
+}
+
+async function exportProjectPdf(){
+  if(!project) return;
+  if(!sites.length){ showToast('No locations to include in the report'); return; }
+  if(typeof window.jspdf === 'undefined'){ showToast('PDF library did not load — check your connection'); return; }
+  showToast('Building PDF — this can take a few seconds…');
+  try{
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({unit:'pt', format:'letter'});
+    const marginX = 40, pageBottom = 730;
+    let y = 46;
+    doc.setFont('helvetica','bold'); doc.setFontSize(16);
+    doc.text(`${project.orderNumber || 'No order #'} — ${project.name || 'Untitled project'}`, marginX, y);
+    y += 18;
+    doc.setFont('helvetica','normal'); doc.setFontSize(10);
+    doc.setTextColor(90,100,115);
+    doc.text(`Count date: ${document.getElementById('countDate').value || '—'}    Prepared by: Jagr Doehring — Jr. Operations Manager`, marginX, y);
+    doc.setTextColor(20,20,20);
+    y += 22;
+
+    for(const site of sites){
+      const blockHeight = 210;
+      if(y + blockHeight > pageBottom){ doc.addPage(); y = 46; }
+      doc.setFont('helvetica','bold'); doc.setFontSize(12);
+      doc.text(`${site.name}${site.siteCode ? '   ·   Code: ' + site.siteCode : ''}`, marginX, y);
+      y += 10;
+      const imgTop = y + 4;
+      try{
+        const imgData = await renderSiteMapImage(site, 460, 18);
+        doc.addImage(imgData, 'JPEG', marginX, imgTop, 190, 190);
+      }catch(e){
+        doc.setFontSize(9); doc.setTextColor(150,60,60);
+        doc.text('Could not load satellite imagery for this location', marginX, imgTop + 20);
+        doc.setTextColor(20,20,20);
+      }
+      const rows = [];
+      site.mapCams.forEach(c => rows.push([c.num, 'Satellite', `${compassLabel(c.orientation||0)} · ${c.orientation||0}°`]));
+      site.diagramCams.forEach(c => rows.push([c.num, `Diagram (${site.diagramTemplate||'n/a'})`, `${compassLabel(c.orientation||0)} · ${c.orientation||0}°`]));
+      doc.autoTable({
+        startY: imgTop,
+        margin: {left: marginX + 205},
+        tableWidth: 330,
+        head: [['Cam #','Mode','Facing']],
+        body: rows.length ? rows : [['—','No cameras placed','—']],
+        styles: {fontSize:8, cellPadding:4},
+        headStyles: {fillColor:[18,86,224]}
+      });
+      y = Math.max(doc.lastAutoTable.finalY, imgTop + 190) + 26;
+    }
+    doc.save(reportFilename('pdf'));
+    showToast('PDF report downloaded');
+  }catch(err){
+    showToast('Could not build PDF — ' + err.message);
+  }
+}
+
+/* =========================== MAP =========================== */
+const DEFAULT_CENTER = [33.0198, -96.8236];
+const map = L.map('map', {zoomControl:true}).setView(DEFAULT_CENTER, 17);
+new OfflineTileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+  maxZoom: 20, attribution: 'Esri, Maxar, Earthstar Geographics'
+}).addTo(map);
+
+let siteMarkers = {};
+let currentMapMarkerObjs = [];
+let overviewCamMarkers = [];
+let currentDiagramMarkerEls = [];
+let diagramTemplate = null;
+let customStrokes = [];
+let drawModeOn = false;
+let activeStroke = null;
+let pointerDownDrawing = false;
+let html5QrCode = null;
+
+function isOverview(){ return activeSiteId === OVERVIEW; }
+function getActiveSite(){ return isOverview() ? null : sites.find(s => s.id === activeSiteId) || null; }
+
+map.on('click', (e) => {
+  if(!armed){ deselectPin(); return; }
+  setArmed(false);
+  if(isOverview() || !getActiveSite()){ showToast('Pick a location first'); return; }
+  addMapCamera(e.latlng.lat, e.latlng.lng);
+});
+
+function makeSiteIcon(active){
+  return L.divIcon({className:'', html:`<div class="site-pin-icon ${active?'active-site':''}"><div class="core"></div></div>`, iconSize:[22,22], iconAnchor:[11,11]});
+}
+function addSiteMarker(site){
+  const marker = L.marker([site.lat, site.lng], {icon: makeSiteIcon(site.id===activeSiteId), draggable:true, zIndexOffset:-100}).addTo(map);
+  marker.bindTooltip(escapeHtml(site.name), {direction:'top', offset:[0,-10]});
+  marker.on('click', () => selectSite(site.id));
+  marker.on('dragend', () => {
+    const p = marker.getLatLng();
+    site.lat = p.lat; site.lng = p.lng;
+    renderSiteList(); renderRouteList(); saveProject();
+    showToast(`${site.name} moved`);
+  });
+  siteMarkers[site.id] = marker;
+}
+function refreshSiteMarkerStyles(){
+  Object.entries(siteMarkers).forEach(([id,m]) => m.setIcon(makeSiteIcon(parseInt(id,10)===activeSiteId)));
+}
+function removeAllSiteMarkers(){
+  Object.values(siteMarkers).forEach(m => map.removeLayer(m));
+  siteMarkers = {};
+}
+
+/* ---------------- camera pins ---------------- */
+function pinHtml(num, orientation){
+  return `<div class="pin-wrap">
+    <div class="rot-guide"></div>
+    <div class="orient-ring" style="transform:rotate(${orientation||0}deg)">
+      <svg class="coverage-cone" viewBox="-66 -66 132 132"><path d="M0,0 L-34,-52 L34,-52 Z"/></svg>
+      <div class="orient-arrow"></div>
+      <div class="rot-handle" title="Drag to aim"></div>
+    </div>
+    <div class="cam-pin"><span class="cam-num">${escapeHtml(num)}</span></div>
+  </div>`;
+}
+function makeCamDivIcon(num, orientation){
+  return L.divIcon({className:'', html: pinHtml(num, orientation), iconSize:[34,34], iconAnchor:[17,17]});
+}
+function wirePin(container, rec, opts){
+  const wrap = container.querySelector('.pin-wrap');
+  const ring = container.querySelector('.orient-ring');
+  const handle = container.querySelector('.rot-handle');
+  wrap.addEventListener('click', (ev) => {
+    if(opts.wasDragged && opts.wasDragged()) return;
+    ev.stopPropagation();
+    selectPin(rec, opts, container);
+  });
+  let rotating = false;
+  ['mousedown','touchstart'].forEach(evt => handle.addEventListener(evt, ev => ev.stopPropagation()));
+  handle.addEventListener('pointerdown', (ev) => {
+    ev.stopPropagation(); ev.preventDefault();
+    rotating = true;
+    if(opts.lockDrag) opts.lockDrag(true);
+    try{ handle.setPointerCapture(ev.pointerId); }catch(e){}
+    selectPin(rec, opts, container);
+  });
+  handle.addEventListener('pointermove', (ev) => {
+    if(!rotating) return;
+    ev.stopPropagation(); ev.preventDefault();
+    const r = wrap.getBoundingClientRect();
+    const cx = r.left + r.width/2, cy = r.top + r.height/2;
+    let deg = Math.atan2(ev.clientY - cy, ev.clientX - cx) * 180/Math.PI + 90;
+    deg = (Math.round(deg/5) * 5 % 360 + 360) % 360;
+    rec.orientation = deg;
+    ring.style.transform = `rotate(${deg}deg)`;
+    syncInspectorHeading(rec);
+    renderPinsList();
+  });
+  const stop = (ev) => {
+    if(!rotating) return;
+    rotating = false;
+    if(opts.lockDrag) opts.lockDrag(false);
+    try{ handle.releasePointerCapture(ev.pointerId); }catch(e){}
+    saveProject();
+  };
+  handle.addEventListener('pointerup', stop);
+  handle.addEventListener('pointercancel', stop);
+}
+function mapPinOpts(marker, rec){
+  return {
+    wasDragged: () => false,
+    lockDrag: (lock) => { if(marker.dragging){ lock ? marker.dragging.disable() : marker.dragging.enable(); } },
+    onRemove: () => {
+      map.removeLayer(marker);
+      currentMapMarkerObjs = currentMapMarkerObjs.filter(m => m !== marker);
+      const site = getActiveSite();
+      if(site) site.mapCams = site.mapCams.filter(r => r !== rec);
+      renderPinsList(); saveProject();
+      showToast(`Camera ${rec.num} deleted`);
+    }
+  };
+}
+function createMapMarker(rec){
+  const marker = L.marker([rec.lat, rec.lng], {icon: makeCamDivIcon(rec.num, rec.orientation||0), draggable:true, riseOnHover:true}).addTo(map);
+  currentMapMarkerObjs.push(marker);
+  let dragged = false;
+  marker.on('dragstart', () => { dragged = true; });
+  marker.on('dragend', () => {
+    const p = marker.getLatLng();
+    rec.lat = p.lat; rec.lng = p.lng;
+    renderPinsList(); saveProject();
+    setTimeout(() => { dragged = false; }, 150);
+  });
+  const opts = mapPinOpts(marker, rec);
+  opts.wasDragged = () => dragged;
+  marker._pinOpts = opts;
+  wirePin(marker.getElement(), rec, opts);
+  return marker;
+}
+function addMapCamera(lat, lng){
+  const site = getActiveSite();
+  const rec = {num: nextCamNum(site.mapCams), lat, lng, orientation:0};
+  site.mapCams.push(rec);
+  const marker = createMapMarker(rec);
+  renderPinsList(); saveProject();
+  setTimeout(() => selectPin(rec, marker._pinOpts, marker.getElement()), 10);
+}
+function clearMapMarkersFromMap(){
+  currentMapMarkerObjs.forEach(m => map.removeLayer(m)); currentMapMarkerObjs = [];
+  overviewCamMarkers.forEach(m => map.removeLayer(m)); overviewCamMarkers = [];
+}
+function rebuildMapMarkersForSite(site){ site.mapCams.forEach(rec => createMapMarker(rec)); }
+function showOverviewOnMap(){
+  sites.forEach(site => {
+    site.mapCams.forEach(rec => {
+      const m = L.marker([rec.lat, rec.lng], {
+        icon: L.divIcon({className:'', html:`<div class="mini-pin">${escapeHtml(rec.num)}</div>`, iconSize:[25,25], iconAnchor:[12,12]})
+      }).addTo(map);
+      m.bindTooltip(`${escapeHtml(site.name)} · Cam ${escapeHtml(rec.num)}`, {direction:'top', offset:[0,-12]});
+      m.on('click', () => selectSite(site.id));
+      overviewCamMarkers.push(m);
+    });
+  });
+  if(sites.length){
+    map.fitBounds(L.latLngBounds(sites.map(s => [s.lat, s.lng])), {padding:[70,70], maxZoom:17});
+  }
+}
+
+/* ---------------- selection + inspector ---------------- */
+let selected = null;
+const inspector = document.getElementById('pinInspector');
+const piNum = document.getElementById('piNum');
+const piRot = document.getElementById('piRot');
+const piHeading = document.getElementById('piHeading');
+const piTitle = document.getElementById('piTitle');
+
+function selectPin(rec, opts, container){
+  if(!container || !container.isConnected) return;
+  if(selected && selected.container && selected.container !== container){
+    const prev = selected.container.querySelector('.pin-wrap');
+    if(prev) prev.classList.remove('selected');
+  }
+  selected = {rec, opts, container};
+  const wrap = container.querySelector('.pin-wrap');
+  if(wrap) wrap.classList.add('selected');
+  piTitle.textContent = 'Camera ' + rec.num;
+  piNum.value = rec.num;
+  piRot.value = rec.orientation || 0;
+  syncInspectorHeading(rec);
+  inspector.classList.add('show');
+}
+function deselectPin(){
+  if(selected && selected.container){
+    const wrap = selected.container.querySelector('.pin-wrap');
+    if(wrap) wrap.classList.remove('selected');
+  }
+  selected = null;
+  inspector.classList.remove('show');
+}
+function syncInspectorHeading(rec){
+  if(!selected || selected.rec !== rec) return;
+  const deg = rec.orientation || 0;
+  piHeading.textContent = `${compassLabel(deg)} · ${deg}°`;
+  piRot.value = deg;
+}
+piNum.addEventListener('input', () => {
+  if(!selected) return;
+  selected.rec.num = piNum.value;
+  const numEl = selected.container.querySelector('.cam-num');
+  if(numEl) numEl.textContent = piNum.value;
+  piTitle.textContent = 'Camera ' + piNum.value;
+  renderPinsList();
+});
+piNum.addEventListener('change', saveProject);
+piRot.addEventListener('input', () => {
+  if(!selected) return;
+  const deg = parseInt(piRot.value,10) || 0;
+  selected.rec.orientation = deg;
+  const ring = selected.container.querySelector('.orient-ring');
+  if(ring) ring.style.transform = `rotate(${deg}deg)`;
+  piHeading.textContent = `${compassLabel(deg)} · ${deg}°`;
+  renderPinsList();
+});
+piRot.addEventListener('change', saveProject);
+document.getElementById('piClose').addEventListener('click', deselectPin);
+document.getElementById('piDelete').addEventListener('click', () => {
+  if(!selected) return;
+  const opts = selected.opts;
+  deselectPin();
+  opts.onRemove();
+});
+
+/* ---------------- arming ---------------- */
+let armed = false;
+const addCamBtn = document.getElementById('addCamBtn');
+const armBanner = document.getElementById('armBanner');
+const addCamLabel = document.getElementById('addCamLabel');
+function setArmed(v){
+  armed = v;
+  addCamBtn.classList.toggle('armed', v);
+  addCamLabel.textContent = v ? 'Cancel placement' : 'Add camera location';
+  addCamBtn.querySelector('.glyph').textContent = v ? '✕' : '＋';
+  armBanner.classList.toggle('show', v);
+  document.getElementById('map').classList.toggle('arming', v);
+  document.getElementById('diagramView').classList.toggle('arming', v);
+}
+addCamBtn.addEventListener('click', () => {
+  if(armed){ setArmed(false); return; }
+  if(isOverview()){ showToast('Pick a location before adding cameras'); return; }
+  if(!getActiveSite()){ showToast('Add or load a location first'); return; }
+  const onDiagram = document.getElementById('map').classList.contains('hidden');
+  if(onDiagram && !diagramTemplate){ showToast('Choose a roadway type first'); return; }
+  deselectPin(); closeSheet(); setArmed(true);
+});
+document.addEventListener('keydown', (e) => {
+  if(e.key === 'Escape'){ if(armed) setArmed(false); else { deselectPin(); closeSheet(); } }
+});
+
+/* =========================== MODES =========================== */
+const diagramView = document.getElementById('diagramView');
+const diagramSvg = document.getElementById('diagramSvg');
+const btnMap = document.getElementById('btnMap');
+const btnDiagram = document.getElementById('btnDiagram');
+const mapDiv = document.getElementById('map');
+const centerPrompt = document.getElementById('centerPrompt');
+const diagramControls = document.getElementById('diagramControls');
+const diagramHint = document.getElementById('diagramHint');
+const drawRow = document.getElementById('drawRow');
+
+btnMap.addEventListener('click', () => switchMode('map'));
+btnDiagram.addEventListener('click', () => {
+  if(isOverview()){ showToast('Diagrams belong to a single location — pick one first'); return; }
+  switchMode('diagram');
+});
+function switchMode(mode){
+  deselectPin(); setArmed(false);
+  if(mode === 'map'){
+    mapDiv.classList.remove('hidden'); diagramView.classList.remove('active');
+    btnMap.classList.add('active'); btnDiagram.classList.remove('active');
+    setTimeout(() => map.invalidateSize(), 50);
+  } else {
+    mapDiv.classList.add('hidden'); diagramView.classList.add('active');
+    btnDiagram.classList.add('active'); btnMap.classList.remove('active');
+    renderDiagram();
+  }
+  renderPinsList();
+}
+
+const ROAD_TYPES = [
+  {id:'4leg', label:'4-Leg Intersection'},
+  {id:'3leg', label:'3-Leg / T Intersection'},
+  {id:'roundabout', label:'Roundabout'},
+  {id:'midblock', label:'Midblock Segment'},
+  {id:'driveway', label:'Driveway / Minor Approach'},
+  {id:'custom', label:'Custom — Draw It'}
+];
+function openRoadwayMenu(x, y){
+  closeRoadwayMenu();
+  const menu = document.createElement('div');
+  menu.className = 'roadway-menu'; menu.id = 'roadwayMenu';
+  ROAD_TYPES.forEach((t,i) => {
+    if(i === ROAD_TYPES.length-1){ const d = document.createElement('div'); d.className='divider'; menu.appendChild(d); }
+    const b = document.createElement('button');
+    b.textContent = t.label;
+    b.addEventListener('click', () => selectRoadwayType(t.id));
+    menu.appendChild(b);
+  });
+  diagramView.appendChild(menu);
+  const rect = diagramView.getBoundingClientRect();
+  const mw = 220, mh = menu.offsetHeight || 260;
+  menu.style.left = Math.max(10, Math.min(x, rect.width - mw - 10)) + 'px';
+  menu.style.top = Math.max(10, Math.min(y, rect.height - mh - 10)) + 'px';
+}
+function closeRoadwayMenu(){ const ex = document.getElementById('roadwayMenu'); if(ex) ex.remove(); }
+function applyDiagramTemplateUI(id){
+  if(!id){
+    centerPrompt.style.display = 'block'; diagramControls.classList.remove('visible');
+    diagramHint.textContent = 'Tap the canvas to choose a roadway type'; return;
+  }
+  centerPrompt.style.display = 'none';
+  diagramControls.classList.add('visible');
+  drawRow.style.display = id === 'custom' ? 'flex' : 'none';
+  diagramHint.textContent = id === 'custom'
+    ? 'Turn on Draw and drag to sketch — Undo removes the last stroke'
+    : 'Use Add camera location to place · drag a pin to move · drag its knob to aim';
+}
+function selectRoadwayType(id){
+  deselectPin();
+  const site = getActiveSite();
+  if(!site){ showToast('Pick a location first'); closeRoadwayMenu(); return; }
+  site.diagramTemplate = id; diagramTemplate = id;
+  site.diagramCams = []; site.customStrokes = [];
+  clearDiagramMarkersFromDom();
+  customStrokes = []; drawModeOn = false;
+  document.getElementById('drawToggle').classList.remove('toggled');
+  diagramView.classList.remove('drawing'); diagramView.classList.add('placing');
+  closeRoadwayMenu();
+  applyDiagramTemplateUI(id);
+  renderDiagram(); renderPinsList(); saveProject();
+}
+document.getElementById('changeTypeBtn').addEventListener('click', () => {
+  const rect = diagramView.getBoundingClientRect();
+  openRoadwayMenu(rect.width/2 - 100, 70);
+});
+document.getElementById('drawToggle').addEventListener('click', () => {
+  drawModeOn = !drawModeOn;
+  document.getElementById('drawToggle').classList.toggle('toggled', drawModeOn);
+  diagramView.classList.toggle('drawing', drawModeOn);
+  diagramView.classList.toggle('placing', !drawModeOn);
+});
+document.getElementById('undoStroke').addEventListener('click', () => {
+  customStrokes.pop();
+  const s = getActiveSite(); if(s) s.customStrokes = customStrokes;
+  renderDiagram(); saveProject();
+});
+centerPrompt.addEventListener('click', (e) => {
+  if(isOverview()){ showToast('Diagrams belong to a single location — pick one first'); return; }
+  const rect = diagramView.getBoundingClientRect();
+  openRoadwayMenu(e.clientX - rect.left, e.clientY - rect.top);
+});
+document.getElementById('streetNS').addEventListener('change', (e) => { const s=getActiveSite(); if(s){ s.streetNS = e.target.value; saveProject(); } });
+document.getElementById('streetEW').addEventListener('change', (e) => { const s=getActiveSite(); if(s){ s.streetEW = e.target.value; saveProject(); } });
+
+function renderDiagram(){
+  const w = diagramView.clientWidth, h = diagramView.clientHeight;
+  diagramSvg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+  const cx = w/2, cy = h/2, armLen = Math.min(w,h)*0.42;
+  if(!diagramTemplate){ diagramSvg.innerHTML = ''; return; }
+  if(diagramTemplate === 'custom'){
+    let svg = '<g stroke="#0A2E6B" stroke-width="12" stroke-linecap="round" fill="none">';
+    customStrokes.forEach(st => { svg += `<polyline points="${st.map(p=>`${p.x},${p.y}`).join(' ')}" />`; });
+    diagramSvg.innerHTML = svg + '</g>';
+    return;
+  }
+  const angleSets = {'4leg':[270,0,90,180], '3leg':[270,0,180], 'driveway':[270,0,180]};
+  let svg = '';
+  if(diagramTemplate === 'roundabout'){
+    const r = armLen*0.28, legs = [270,0,90,180];
+    svg += `<g stroke="#C3CDDA" stroke-width="14" stroke-linecap="round">`;
+    legs.forEach(a => { const rad=a*Math.PI/180; svg += `<line x1="${cx+r*Math.cos(rad)}" y1="${cy+r*Math.sin(rad)}" x2="${cx+armLen*Math.cos(rad)}" y2="${cy+armLen*Math.sin(rad)}" />`; });
+    svg += `</g><circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="#C3CDDA" stroke-width="14" /><circle cx="${cx}" cy="${cy}" r="${r-9}" fill="#FBFCFE" />`;
+  } else if(diagramTemplate === 'midblock'){
+    svg += `<g stroke="#C3CDDA" stroke-width="14" stroke-linecap="round"><line x1="${cx-armLen}" y1="${cy}" x2="${cx+armLen}" y2="${cy}" /></g>
+    <g stroke="#94A3B5" stroke-width="1.5" stroke-dasharray="6,7"><line x1="${cx-armLen}" y1="${cy}" x2="${cx+armLen}" y2="${cy}" /></g>`;
+  } else {
+    const angles = angleSets[diagramTemplate] || angleSets['4leg'];
+    const lens = diagramTemplate === 'driveway' ? [armLen*0.55, armLen, armLen] : angles.map(()=>armLen);
+    svg += `<g stroke="#C3CDDA" stroke-width="14" stroke-linecap="round">`;
+    angles.forEach((a,i) => { const rad=a*Math.PI/180, L=lens[i]; svg += `<line x1="${cx}" y1="${cy}" x2="${cx+L*Math.cos(rad)}" y2="${cy+L*Math.sin(rad)}" />`; });
+    svg += `</g><g stroke="#94A3B5" stroke-width="1.5" stroke-dasharray="6,7">`;
+    angles.forEach((a,i) => { const rad=a*Math.PI/180, L=lens[i]; svg += `<line x1="${cx}" y1="${cy}" x2="${cx+L*Math.cos(rad)}" y2="${cy+L*Math.sin(rad)}" />`; });
+    svg += `</g><circle cx="${cx}" cy="${cy}" r="5" fill="#94A3B5" />`;
+  }
+  diagramSvg.innerHTML = svg;
+}
+
+diagramView.addEventListener('pointerdown', (e) => {
+  if(e.target.closest('.diagram-marker') || e.target.closest('.roadway-menu') || e.target.closest('.diagram-controls')) return;
+  if(isOverview()) return;
+  const rect = diagramView.getBoundingClientRect();
+  const x = e.clientX - rect.left, y = e.clientY - rect.top;
+  if(!diagramTemplate){ openRoadwayMenu(x,y); return; }
+  if(diagramTemplate === 'custom' && drawModeOn){
+    pointerDownDrawing = true; activeStroke = [{x,y}]; customStrokes.push(activeStroke);
+    const s = getActiveSite(); if(s) s.customStrokes = customStrokes;
+    renderDiagram();
+  }
+});
+diagramView.addEventListener('pointermove', (e) => {
+  if(!pointerDownDrawing || !activeStroke) return;
+  const rect = diagramView.getBoundingClientRect();
+  activeStroke.push({x: e.clientX - rect.left, y: e.clientY - rect.top});
+  renderDiagram();
+});
+window.addEventListener('pointerup', () => {
+  if(pointerDownDrawing) saveProject();
+  pointerDownDrawing = false; activeStroke = null;
+});
+diagramView.addEventListener('click', (e) => {
+  if(e.target.closest('.diagram-marker') || e.target.closest('.roadway-menu') || e.target.closest('.diagram-controls') || e.target.closest('.center-prompt')) return;
+  if(!armed){ deselectPin(); return; }
+  if(diagramTemplate === 'custom' && drawModeOn) return;
+  setArmed(false);
+  if(isOverview() || !diagramTemplate) return;
+  const rect = diagramView.getBoundingClientRect();
+  addDiagramCamera(e.clientX - rect.left, e.clientY - rect.top);
+});
+
+function createDiagramMarkerDom(rec){
+  const wrap = document.createElement('div');
+  wrap.className = 'diagram-marker';
+  wrap.style.left = rec.x + 'px'; wrap.style.top = rec.y + 'px';
+  wrap.innerHTML = pinHtml(rec.num, rec.orientation||0);
+  diagramView.appendChild(wrap);
+  currentDiagramMarkerEls.push(wrap);
+  let dragState = null, recentlyDragged = false, dragLocked = false;
+  const pinWrap = wrap.querySelector('.pin-wrap');
+  pinWrap.addEventListener('pointerdown', (ev) => {
+    if(ev.target.closest('.rot-handle') || dragLocked) return;
+    ev.stopPropagation();
+    dragState = {startX:ev.clientX, startY:ev.clientY, origX:rec.x, origY:rec.y, moved:false};
+    try{ pinWrap.setPointerCapture(ev.pointerId); }catch(e){}
+  });
+  pinWrap.addEventListener('pointermove', (ev) => {
+    if(!dragState) return;
+    const dx = ev.clientX - dragState.startX, dy = ev.clientY - dragState.startY;
+    if(Math.abs(dx) > 5 || Math.abs(dy) > 5) dragState.moved = true;
+    if(dragState.moved){
+      rec.x = dragState.origX + dx; rec.y = dragState.origY + dy;
+      wrap.style.left = rec.x + 'px'; wrap.style.top = rec.y + 'px';
+    }
+  });
+  pinWrap.addEventListener('pointerup', () => {
+    if(dragState && dragState.moved){
+      recentlyDragged = true; saveProject();
+      setTimeout(() => { recentlyDragged = false; }, 150);
+    }
+    dragState = null;
+  });
+  const opts = {
+    wasDragged: () => recentlyDragged,
+    lockDrag: (lock) => { dragLocked = lock; },
+    onRemove: () => {
+      wrap.remove();
+      currentDiagramMarkerEls = currentDiagramMarkerEls.filter(el => el !== wrap);
+      const site = getActiveSite();
+      if(site) site.diagramCams = site.diagramCams.filter(r => r !== rec);
+      renderPinsList(); saveProject();
+      showToast(`Camera ${rec.num} deleted`);
+    }
+  };
+  wrap._pinOpts = opts;
+  wirePin(wrap, rec, opts);
+  return wrap;
+}
+function addDiagramCamera(x, y){
+  const site = getActiveSite();
+  const rec = {num: nextCamNum(site.diagramCams), x, y, orientation:0};
+  site.diagramCams.push(rec);
+  const el = createDiagramMarkerDom(rec);
+  renderPinsList(); saveProject();
+  setTimeout(() => selectPin(rec, el._pinOpts, el), 10);
+}
+function clearDiagramMarkersFromDom(){ currentDiagramMarkerEls.forEach(el => el.remove()); currentDiagramMarkerEls = []; }
+function rebuildDiagramMarkersForSite(site){ site.diagramCams.forEach(rec => createDiagramMarkerDom(rec)); }
+window.addEventListener('resize', () => { if(diagramView.classList.contains('active')) renderDiagram(); });
+
+/* =========================== SITES =========================== */
+function renderSiteList(){
+  const el = document.getElementById('siteList');
+  let html = `<button class="site-tab overview ${isOverview()?'active':''}" data-id="${OVERVIEW}">All locations${sites.length?` · ${sites.length}`:''}</button>`;
+  html += sites.length
+    ? sites.map(s => `<div class="site-row">
+        <button class="site-tab ${s.id===activeSiteId?'active':''}" data-id="${s.id}">${escapeHtml(s.name)}${s.siteCode ? ` <span style="opacity:.7;">· ${escapeHtml(s.siteCode)}</span>` : ''}<span class="coords">${s.lat.toFixed(6)}, ${s.lng.toFixed(6)}</span></button>
+        <button class="site-edit" data-edit="${s.id}" title="Edit name / code">✎</button>
+        <button class="site-del" data-del="${s.id}" title="Remove location">✕</button>
+      </div>`).join('')
+    : '<div class="empty-hint">Upload a KMZ/KML or add a location by hand.</div>';
+  el.innerHTML = html;
+  el.querySelectorAll('.site-tab:not(.overview)').forEach(btn => btn.addEventListener('click', () => {
+    selectSite(parseInt(btn.dataset.id,10));
+    if(isMobile()) closeSheet();
+  }));
+  el.querySelector('.site-tab.overview').addEventListener('click', () => {
+    selectSite(OVERVIEW);
+    if(isMobile()) closeSheet();
+  });
+  el.querySelectorAll('.site-edit').forEach(btn => btn.addEventListener('click', (ev) => {
+    ev.stopPropagation();
+    openLocationModal('edit', parseInt(btn.dataset.edit,10));
+  }));
+  el.querySelectorAll('.site-del').forEach(btn => btn.addEventListener('click', (ev) => {
+    ev.stopPropagation();
+    deleteSite(parseInt(btn.dataset.del,10));
+  }));
+}
+function deleteSite(id){
+  const site = sites.find(s => s.id === id);
+  if(!site) return;
+  const camCount = site.mapCams.length + site.diagramCams.length;
+  sites = sites.filter(s => s.id !== id);
+  route = route.filter(r => r !== id);
+  const marker = siteMarkers[id];
+  if(marker){ map.removeLayer(marker); delete siteMarkers[id]; }
+  if(activeSiteId === id){
+    selectSite(OVERVIEW);
+  } else {
+    renderSiteList();
+  }
+  renderRouteList();
+  saveProject();
+  showToast(camCount ? `"${site.name}" removed with ${camCount} camera${camCount===1?'':'s'}` : `"${site.name}" removed`);
+}
+
+/* ---------------- add / rename location modal ---------------- */
+const locationModal = document.getElementById('locationModal');
+const lmName = document.getElementById('lmName');
+const lmCode = document.getElementById('lmCode');
+let locationModalMode = 'add';
+let locationModalSiteId = null;
+function openLocationModal(mode, siteId){
+  locationModalMode = mode;
+  locationModalSiteId = siteId || null;
+  const title = document.getElementById('lmTitle');
+  const hint = document.getElementById('lmHint');
+  const save = document.getElementById('lmSave');
+  if(mode === 'edit'){
+    const site = sites.find(s => s.id === siteId);
+    if(!site) return;
+    title.textContent = 'Edit location';
+    hint.textContent = 'Position and cameras stay put — this only changes the name and code.';
+    save.textContent = 'Save';
+    lmName.value = site.name;
+    lmCode.value = site.siteCode || '';
+  } else {
+    title.textContent = 'Add location';
+    hint.textContent = 'Drops at the center of the current map view — drag its pin afterward to fine-tune.';
+    save.textContent = 'Add location';
+    lmName.value = `Site ${sites.length+1}`;
+    lmCode.value = '';
+  }
+  locationModal.classList.add('show');
+  setTimeout(() => { lmName.focus(); lmName.select(); }, 30);
+}
+function closeLocationModal(){ locationModal.classList.remove('show'); }
+document.getElementById('lmClose').addEventListener('click', closeLocationModal);
+document.getElementById('lmCancel').addEventListener('click', closeLocationModal);
+lmName.addEventListener('keydown', e => { if(e.key === 'Enter') document.getElementById('lmSave').click(); });
+document.getElementById('lmSave').addEventListener('click', () => {
+  const name = lmName.value.trim();
+  const code = lmCode.value.trim();
+  if(!name){ showToast('Give the location a name'); return; }
+  if(locationModalMode === 'edit'){
+    const site = sites.find(s => s.id === locationModalSiteId);
+    if(!site) return;
+    site.name = name;
+    site.siteCode = code;
+    const marker = siteMarkers[site.id];
+    if(marker) marker.setTooltipContent(escapeHtml(name));
+    renderSiteList(); renderRouteList(); saveProject();
+    showToast('Location updated');
+  } else {
+    const c = map.getCenter();
+    const site = newSite(name, c.lat, c.lng);
+    site.siteCode = code;
+    sites.push(site); route.push(site.id);
+    addSiteMarker(site);
+    selectSite(site.id); renderRouteList(); saveProject();
+    showToast(`Added "${name}" — drag its pin to fine-tune`);
+  }
+  closeLocationModal();
+});
+function selectSite(id){
+  deselectPin(); setArmed(false);
+  activeSiteId = id;
+  clearMapMarkersFromMap();
+  clearDiagramMarkersFromDom();
+  if(isOverview()){
+    switchMode('map');
+    showOverviewOnMap();
+    diagramTemplate = null; customStrokes = [];
+    applyDiagramTemplateUI(null);
+  } else {
+    const site = getActiveSite();
+    if(!site) return;
+    map.setView([site.lat, site.lng], 18);
+    rebuildMapMarkersForSite(site);
+    diagramTemplate = site.diagramTemplate;
+    customStrokes = site.customStrokes || [];
+    applyDiagramTemplateUI(diagramTemplate);
+    if(diagramTemplate) rebuildDiagramMarkersForSite(site);
+    document.getElementById('streetNS').value = site.streetNS || '';
+    document.getElementById('streetEW').value = site.streetEW || '';
+    renderDiagram();
+  }
+  renderCamRoster(); renderSiteList(); renderPinsList(); refreshSiteMarkerStyles();
+}
+document.getElementById('addLocationBtn').addEventListener('click', () => openLocationModal('add'));
+
+/* =========================== ROSTER =========================== */
+function renderCamRoster(){
+  const el = document.getElementById('camRoster');
+  if(isOverview()){
+    el.innerHTML = sites.length
+      ? '<div class="overview-note">Camera numbers restart at 1 at every location. Pick a location to edit its roster.</div>' +
+        sites.map(s => {
+          const filled = s.camSlots.filter(x => x.val).length;
+          return `<div class="cam-row"><span class="dot"></span><span class="id">${escapeHtml(s.name)}</span><span>${filled}/${s.camSlots.length}</span></div>`;
+        }).join('')
+      : '<div class="empty-hint">No locations yet.</div>';
+    return;
+  }
+  const site = getActiveSite();
+  if(!site){ el.innerHTML = '<div class="empty-hint">Pick a location first.</div>'; return; }
+  el.innerHTML = site.camSlots.map(s => `
+    <div class="slot-row">
+      <label>Cam ${s.n}</label>
+      <input type="text" data-slot="${s.n}" value="${escapeHtml(s.val)}" placeholder="Camera #">
+      <button class="slot-del" data-del="${s.n}" title="Remove Cam ${s.n}">✕</button>
+    </div>`).join('');
+  if(site.camSlots.length < 10){
+    const add = document.createElement('button');
+    add.className = 'add-slot-btn';
+    add.textContent = '+ Add camera';
+    add.addEventListener('click', () => {
+      site.camSlots.push({n: site.camSlots.length+1, val:''});
+      renumberSlots(site); renderCamRoster(); saveProject();
+    });
+    el.appendChild(add);
+  }
+  el.querySelectorAll('input[data-slot]').forEach(inp => {
+    inp.addEventListener('change', () => {
+      const slot = site.camSlots.find(s => s.n === parseInt(inp.dataset.slot,10));
+      if(slot){ slot.val = inp.value; saveProject(); }
+    });
+  });
+  el.querySelectorAll('button[data-del]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if(site.camSlots.length <= 1){ showToast('Every location keeps at least one camera slot'); return; }
+      site.camSlots = site.camSlots.filter(s => s.n !== parseInt(btn.dataset.del,10));
+      renumberSlots(site); renderCamRoster(); saveProject();
+    });
+  });
+}
+function renumberSlots(site){ site.camSlots.forEach((s,i) => { s.n = i+1; }); }
+
+/* =========================== ROUTE =========================== */
+function renderRouteList(){
+  const el = document.getElementById('routeList');
+  route = route.filter(id => sites.some(s => s.id === id));
+  if(route.length === 0){ el.innerHTML = '<div class="empty-hint">Load or add locations to build a route.</div>'; return; }
+  el.innerHTML = route.map((id,i) => {
+    const s = sites.find(x => x.id === id);
+    return `<div class="route-stop">
+      <span class="idx">${i+1}</span>
+      <span class="rname" title="${escapeHtml(s.name)}">${escapeHtml(s.name)}</span>
+      <button data-up="${i}" title="Move up">↑</button>
+      <button data-down="${i}" title="Move down">↓</button>
+      <button class="rm" data-rm="${i}" title="Remove">✕</button>
+    </div>`;
+  }).join('');
+  el.querySelectorAll('[data-up]').forEach(b => b.addEventListener('click', () => {
+    const i = parseInt(b.dataset.up,10);
+    if(i>0){ [route[i-1],route[i]]=[route[i],route[i-1]]; renderRouteList(); saveProject(); }
+  }));
+  el.querySelectorAll('[data-down]').forEach(b => b.addEventListener('click', () => {
+    const i = parseInt(b.dataset.down,10);
+    if(i<route.length-1){ [route[i+1],route[i]]=[route[i],route[i+1]]; renderRouteList(); saveProject(); }
+  }));
+  el.querySelectorAll('[data-rm]').forEach(b => b.addEventListener('click', () => {
+    route.splice(parseInt(b.dataset.rm,10),1); renderRouteList(); saveProject();
+  }));
+}
+function routeStops(){ return route.map(id => sites.find(s => s.id === id)).filter(Boolean); }
+document.getElementById('routeGoogle').addEventListener('click', () => {
+  const stops = routeStops();
+  if(!stops.length){ showToast('No stops in the route yet'); return; }
+  const dest = stops[stops.length-1];
+  let url = `https://www.google.com/maps/dir/?api=1&destination=${dest.lat},${dest.lng}&travelmode=driving`;
+  if(stops.length > 1) url += `&waypoints=${encodeURIComponent(stops.slice(0,-1).map(s=>`${s.lat},${s.lng}`).join('|'))}`;
+  window.open(url,'_blank');
+});
+document.getElementById('routeWaze').addEventListener('click', () => {
+  const stops = routeStops();
+  if(!stops.length){ showToast('No stops in the route yet'); return; }
+  window.open(`https://waze.com/ul?ll=${stops[0].lat},${stops[0].lng}&navigate=yes`,'_blank');
+  if(stops.length>1) showToast('Waze takes one stop per link — opening stop 1');
+});
+document.getElementById('routeApple').addEventListener('click', () => {
+  const stops = routeStops();
+  if(!stops.length){ showToast('No stops in the route yet'); return; }
+  window.open(`https://maps.apple.com/?daddr=${stops[0].lat},${stops[0].lng}&dirflg=d`,'_blank');
+  if(stops.length>1) showToast('Apple Maps takes one stop per link — opening stop 1');
+});
+document.getElementById('routeCopy').addEventListener('click', () => {
+  const stops = routeStops();
+  if(!stops.length){ showToast('No stops in the route yet'); return; }
+  copyText(stops.map((s,i)=>`${i+1}. ${s.name} — ${s.lat.toFixed(6)}, ${s.lng.toFixed(6)}`).join('\n'), 'Route copied');
+});
+
+/* =========================== PIN LIST =========================== */
+function renderPinsList(){
+  const mode = mapDiv.classList.contains('hidden') ? 'diagram' : 'map';
+  const el = document.getElementById('pinsList');
+  const title = document.getElementById('pinsListTitle');
+  if(isOverview()){
+    title.textContent = 'Placed pins — all locations';
+    const withPins = sites.filter(s => s.mapCams.length || s.diagramCams.length);
+    if(!withPins.length){ el.innerHTML = '<div class="empty-hint">No cameras placed yet.</div>'; return; }
+    el.innerHTML = withPins.map(s => {
+      const rows = [...s.mapCams.map(r=>({r,src:'satellite'})), ...s.diagramCams.map(r=>({r,src:'diagram'}))];
+      return `<div class="group-head">${escapeHtml(s.name)}<span class="count">${rows.length} pin${rows.length===1?'':'s'}</span></div>` +
+        rows.map(({r,src}) => `<div class="cam-row"><span class="dot"></span><span class="id">Cam ${escapeHtml(r.num)}</span><span>${src} · ${compassLabel(r.orientation||0)}</span></div>`).join('');
+    }).join('');
+    return;
+  }
+  title.textContent = 'Placed pins — ' + (mode === 'map' ? 'Satellite' : 'Diagram');
+  const site = getActiveSite();
+  if(!site){ el.innerHTML = '<div class="empty-hint">Pick a location first.</div>'; return; }
+  const arr = mode === 'map' ? site.mapCams : site.diagramCams;
+  el.innerHTML = (arr && arr.length)
+    ? arr.map(r => `<div class="cam-row"><span class="dot"></span><span class="id">Cam ${escapeHtml(r.num)}</span><span>facing ${compassLabel(r.orientation||0)}</span></div>`).join('')
+    : '<div class="empty-hint">No pins placed yet in this view.</div>';
+}
+
+/* =========================== KMZ / KML =========================== */
+async function parseGeoFile(file){
+  let kmlText;
+  if(file.name.toLowerCase().endsWith('.kml')){ kmlText = await file.text(); }
+  else{
+    const zip = await JSZip.loadAsync(file);
+    const kmlFile = Object.values(zip.files).find(f => f.name.toLowerCase().endsWith('.kml'));
+    if(!kmlFile) throw new Error('no KML inside the KMZ');
+    kmlText = await kmlFile.async('text');
+  }
+  const doc = new DOMParser().parseFromString(kmlText, 'application/xml');
+  if(doc.querySelector('parsererror')) throw new Error('the file is not valid KML');
+  // Google My Maps stores the map title as <Document><name>
+  let title = '';
+  const docEl = doc.getElementsByTagName('Document')[0];
+  if(docEl){
+    const nameEl = [...docEl.children].find(c => c.tagName === 'name' || c.tagName.endsWith(':name'));
+    if(nameEl) title = nameEl.textContent.trim();
+  }
+  if(!title || /^doc$/i.test(title)){
+    title = file.name.replace(/\.(kmz|kml)$/i,'').replace(/[_-]+/g,' ').trim();
+  }
+  const placemarks = [...doc.getElementsByTagName('Placemark')];
+  if(!placemarks.length) throw new Error('no placemarks found');
+  const out = [];
+  placemarks.forEach(pm => {
+    const coordEl = pm.getElementsByTagName('coordinates')[0];
+    if(!coordEl) return;
+    const parts = coordEl.textContent.trim().split(/\s+/)[0].split(',');
+    if(parts.length < 2) return;
+    const lng = parseFloat(parts[0]), lat = parseFloat(parts[1]);
+    if(Number.isNaN(lat) || Number.isNaN(lng)) return;
+    const nameEl = pm.getElementsByTagName('name')[0];
+    out.push({lat, lng, name: nameEl ? nameEl.textContent.trim() : 'Site point'});
+  });
+  if(!out.length) throw new Error('no usable coordinates found');
+  return {title, points: out};
+}
+
+/* ---------------- generic picker for files in cloud storage ---------------- */
+async function listServerFiles(folder, extRegex){
+  if(!(await CLOUD.authed())) throw new Error('not authenticated');
+  const res = await fetch(CLOUD.baseUrl + '/' + folder, { headers: CLOUD.headers(), cache:'no-store' });
+  if(!res.ok) throw new Error(`could not list ${folder} (${res.status})`);
+  const data = await res.json();
+  return (data.files || []).filter(n => extRegex.test(n));
+}
+async function fetchServerFileAsFile(folder, name){
+  const res = await fetch(CLOUD.baseUrl + '/' + folder + '/' + encodeURIComponent(name), { headers: CLOUD.headers(), cache:'no-store' });
+  if(!res.ok) throw new Error(`could not download "${name}" (${res.status})`);
+  const blob = await res.blob();
+  return new File([blob], name);
+}
+async function fetchServerFileAsJson(folder, name){
+  const res = await fetch(CLOUD.baseUrl + '/' + folder + '/' + encodeURIComponent(name), { headers: CLOUD.headers(), cache:'no-store' });
+  if(!res.ok) throw new Error(`could not download "${name}" (${res.status})`);
+  return res.json();
+}
+const serverFileModal = document.getElementById('serverFileModal');
+let serverPicker = null;
+async function refreshServerFileList(){
+  const {folder, extRegex, onPick} = serverPicker;
+  const listEl = document.getElementById('sfList');
+  listEl.innerHTML = '<div class="sf-empty">Looking…</div>';
+  try{
+    const names = await listServerFiles(folder, extRegex);
+    listEl.innerHTML = names.length
+      ? names.map(n => `<button class="sf-item" data-name="${escapeHtml(n)}">${escapeHtml(n)}</button>`).join('')
+      : `<div class="sf-empty">No matching files in the "${escapeHtml(folder)}" folder yet.</div>`;
+    listEl.querySelectorAll('.sf-item').forEach(btn => btn.addEventListener('click', async () => {
+      const name = btn.dataset.name;
+      btn.disabled = true; btn.textContent = `Loading ${name}…`;
+      try{
+        closeServerFileModal();
+        await onPick(name);
+      }catch(err){
+        showToast(`Could not load "${name}" — ${err.message}`);
+      }
+    }));
+  }catch(err){
+    listEl.innerHTML = `<div class="sf-empty">${escapeHtml(err.message)}</div>`;
+  }
+}
+function openServerFilePicker(folder, extRegex, onPick){
+  serverPicker = {folder, extRegex, onPick};
+  serverFileModal.classList.add('show');
+  refreshServerFileList();
+}
+function closeServerFileModal(){ serverFileModal.classList.remove('show'); }
+document.getElementById('sfClose').addEventListener('click', closeServerFileModal);
+document.getElementById('sfCancel').addEventListener('click', closeServerFileModal);
+document.getElementById('sfRefresh').addEventListener('click', refreshServerFileList);
+document.getElementById('downloadOfflineBtn').addEventListener('click', downloadOfflineMapsForProject);
+document.getElementById('offlineStopBtn').addEventListener('click', () => { offlineDownloadAbort = true; });
+document.getElementById('clearOfflineBtn').addEventListener('click', async () => {
+  await tileDbClear();
+  showToast('Cleared cached offline maps on this device');
+  refreshOfflineStats();
+});
+document.getElementById('exportPdfBtn').addEventListener('click', exportProjectPdf);
+document.getElementById('exportExcelBtn').addEventListener('click', exportProjectExcel);
+
+async function handleWorkspaceGeoFile(file){
+  try{
+    const parsed = await parseGeoFile(file);
+    const pts = parsed.points;
+    clearMapMarkersFromMap(); clearDiagramMarkersFromDom(); removeAllSiteMarkers();
+    siteCounter = 0;
+    sites = pts.map((pt,i) => newSite(pt.name || `Site ${i+1}`, pt.lat, pt.lng));
+    route = sites.map(s => s.id);
+    sites.forEach(s => addSiteMarker(s));
+    if(!project.name){
+      project.name = parsed.title;
+      document.getElementById('wsName').textContent = project.name;
+    }
+    if(!project.orderNumber){
+      const order = extractOrderNumber(file.name, parsed.title);
+      if(order){
+        project.orderNumber = order;
+        document.getElementById('wsOrder').textContent = project.orderNumber;
+      }
+    }
+    selectSite(OVERVIEW); renderRouteList(); saveProject();
+    showToast(`Loaded ${sites.length} location${sites.length===1?'':'s'}`);
+  }catch(err){ showToast('Could not read that file — ' + err.message); }
+}
+document.getElementById('kmzInput').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if(!file) return;
+  await handleWorkspaceGeoFile(file);
+  e.target.value = '';
+});
+document.getElementById('wsFromServer').addEventListener('click', () => openServerFilePicker('kmz', /\.(kmz|kml)$/i, async (name) => {
+  handleWorkspaceGeoFile(await fetchServerFileAsFile('kmz', name));
+}));
+document.getElementById('btnPushProject').addEventListener('click', pushProjectToServer);
+
+/* =========================== SUMMARY =========================== */
+document.getElementById('copySummary').addEventListener('click', () => {
+  if(!project) return;
+  let text = `QC PROJECT SUMMARY\nOrder #: ${project.orderNumber || '—'}\nProject: ${project.name || '—'}\n`;
+  text += `Count date: ${document.getElementById('countDate').value || '—'}\nStatus: ${project.status}\n`;
+  text += `Prepared by: Jagr Doehring — Jr. Operations Manager\n\n`;
+  sites.forEach(site => {
+    text += `— ${site.name} (${site.lat.toFixed(6)}, ${site.lng.toFixed(6)}) —\n`;
+    const roster = site.camSlots.filter(s => s.val).map(s => `Cam ${s.n}: ${s.val}`).join(', ');
+    text += `Camera roster: ${roster || 'none entered'}\n`;
+    if(site.mapCams.length) text += `Satellite placements:\n` + site.mapCams.map(c => `  Cam ${c.num} — ${c.lat.toFixed(6)}, ${c.lng.toFixed(6)} — facing ${compassLabel(c.orientation||0)}\n`).join('');
+    if(site.diagramCams.length) text += `Diagram placements (${site.diagramTemplate || 'n/a'}):\n` + site.diagramCams.map(c => `  Cam ${c.num} — facing ${compassLabel(c.orientation||0)}\n`).join('');
+    text += `\n`;
+  });
+  copyText(text, 'Summary copied');
+});
+
+/* =========================== BARCODE =========================== */
+const scanModal = document.getElementById('scanModal');
+document.getElementById('scanBtn').addEventListener('click', () => {
+  if(!getActiveSite()){ showToast('Pick a location before scanning'); return; }
+  closeSheet();
+  scanModal.classList.add('show');
+  document.getElementById('scanResultWrap').style.display = 'none';
+  if(typeof Html5Qrcode === 'undefined'){ showToast('Scanner library did not load'); return; }
+  html5QrCode = new Html5Qrcode('scanRegion');
+  html5QrCode.start({facingMode:'environment'}, {fps:10, qrbox:220},
+    (t) => onScanSuccess(t), () => {}
+  ).catch(() => showToast('Camera unavailable — check permissions and use HTTPS or localhost'));
+});
+document.getElementById('scanClose').addEventListener('click', closeScanModal);
+function closeScanModal(){
+  scanModal.classList.remove('show');
+  if(html5QrCode){ html5QrCode.stop().then(() => html5QrCode.clear()).catch(()=>{}); html5QrCode = null; }
+}
+function onScanSuccess(text){
+  document.getElementById('scanResult').textContent = text;
+  document.getElementById('scanResultWrap').style.display = 'block';
+  const site = getActiveSite();
+  const opts = document.getElementById('scanFillOptions');
+  opts.innerHTML = site.camSlots.map(s => `<button class="btn small" data-n="${s.n}">Fill Cam ${s.n}</button>`).join('');
+  opts.querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
+    const slot = site.camSlots.find(s => s.n === parseInt(b.dataset.n,10));
+    if(slot){ slot.val = text; renderCamRoster(); saveProject(); showToast(`Cam ${slot.n} filled`); closeScanModal(); }
+  }));
+}
+
+
+document.getElementById('fabBtn').addEventListener('click', openNewProjectModal);
+document.getElementById('plImportBtn').addEventListener('click', () => openServerFilePicker('projects', /\.json$/i, async (name) => {
+  importProjectData(await fetchServerFileAsJson('projects', name));
+}));
+document.getElementById('plOpenFileBtn').addEventListener('click', () => document.getElementById('openProjectFile').click());
+document.getElementById('openProjectFile').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if(!file) return;
+  try{
+    importProjectData(JSON.parse(await file.text()), 'from file');
+  }catch(err){
+    showToast('Could not read that file — ' + err.message);
+  }
+});
+document.getElementById('saveProjectFileBtn').addEventListener('click', exportProjectFile);
+
+/* =========================== BOOT =========================== */
+if(SYNC.enabled()){
+  SYNC.pull().then(remote => { if(remote){ projects = remote; renderProjects(); } });
+  SYNC.subscribe(remote => {
+    projects = remote;
+    renderProjects();
+    if(project){
+      const fresh = projects.find(p => p.id === project.id);
+      if(fresh && fresh.updatedAt > project.updatedAt) showToast('This project was updated by someone else');
+    }
+  });
+}
+
+(async function cloudBoot(){
+  if(!(await CLOUD.authed())) return;
+  try{
+    const res = await fetch(CLOUD.baseUrl + '/projects/all', { headers: CLOUD.headers(), cache:'no-store' });
+    if(!res.ok) return;
+    const data = await res.json();
+    if(!data.projects || !data.projects.length) return;
+    let changed = false;
+    for(const remote of data.projects){
+      if(!remote || !remote.id) continue;
+      const idx = projects.findIndex(p => p.id === remote.id);
+      if(idx >= 0){
+        if((remote.updatedAt || 0) > (projects[idx].updatedAt || 0)){
+          projects[idx] = remote;
+          changed = true;
+        }
+      } else {
+        projects.push(remote);
+        changed = true;
+      }
+    }
+    if(changed){ store.write(projects); renderProjects(); }
+  }catch(e){}
+})();
+
+window.addEventListener('beforeunload', () => { if(project) saveProject(); });
+renderProjects();
+showScreen('projects');
+</script>
+</body>
+</html>

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'qc-site-mapper-v17';
+const CACHE_NAME = 'qc-site-mapper-v18';
 const APP_SHELL = [
   './qc-site-mapper_2.html',
   './manifest.json',
